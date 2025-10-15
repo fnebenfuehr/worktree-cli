@@ -7,6 +7,7 @@ A modern, production-ready CLI tool for managing git worktrees with ease. Built 
 Git worktrees allow you to have multiple working directories for a single repository, making it easy to:
 
 - Work on multiple branches simultaneously without switching contexts
+- Isolate AI agent environments for safe parallel development without context conflicts
 - Run tests on one branch while developing on another
 - Review pull requests without disrupting your current work
 - Keep your main branch clean and always deployable
