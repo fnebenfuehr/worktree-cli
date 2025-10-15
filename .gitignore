@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build output
+dist/
+*.log
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+.tmp/

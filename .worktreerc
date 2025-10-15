@@ -1,0 +1,3 @@
+{
+  "post_create": ["bun install"]
+}

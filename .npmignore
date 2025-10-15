@@ -1,0 +1,17 @@
+# Source files
+src/
+tests/
+*.test.ts
+
+# Config files
+tsconfig.json
+.github/
+
+# Development files
+.DS_Store
+*.log
+.env
+.env.local
+
+# Documentation (except README)
+CHANGELOG.md

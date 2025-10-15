@@ -1,0 +1,13 @@
+{
+  "post_create": [
+    "bun install",
+    "bun run db:migrate"
+  ],
+  "pre_remove": [
+    "docker compose down"
+  ],
+  "copy_files": [
+    ".env",
+    ".env.local"
+  ]
+}

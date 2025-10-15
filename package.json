@@ -1,0 +1,73 @@
+{
+	"name": "worktree-cli",
+	"version": "1.0.0",
+	"description": "A modern CLI tool for managing git worktrees with ease",
+	"type": "module",
+	"main": "./dist/index.js",
+	"bin": {
+		"worktree": "./dist/index.js"
+	},
+	"scripts": {
+		"dev": "bun run src/index.ts",
+		"build": "bun build src/index.ts --outdir dist --target bun --minify",
+		"typecheck": "tsc --noEmit",
+		"test": "bun test",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"check": "bun run format && bun run typecheck",
+		"prepare": "lefthook install",
+		"prepublishOnly": "bun run build",
+		"changeset": "changeset",
+		"version": "changeset version",
+		"release": "bun run build && changeset publish"
+	},
+	"keywords": [
+		"git",
+		"worktree",
+		"cli",
+		"workflow",
+		"development",
+		"branches",
+		"productivity"
+	],
+	"author": "Florian Nebenfuehr <florian@4com.at>",
+	"license": "MIT",
+	"funding": {
+		"type": "github",
+		"url": "https://github.com/sponsors/fnebenfuehr"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"dependencies": {
+		"@clack/prompts": "^0.8.2",
+		"commander": "^14.0.1",
+		"cosmiconfig": "^9.0.0",
+		"picocolors": "^1.1.1",
+		"update-notifier": "^7.3.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.6",
+		"@types/bun": "latest",
+		"@types/update-notifier": "^6.0.8",
+		"lefthook": "^1.13.6",
+		"typescript": "^5.6.0"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/fnebenfuehr/worktree-cli.git"
+	},
+	"bugs": {
+		"url": "https://github.com/fnebenfuehr/worktree-cli/issues"
+	},
+	"homepage": "https://github.com/fnebenfuehr/worktree-cli#readme"
+}
