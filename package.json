@@ -5,7 +5,7 @@
 	"type": "module",
 	"main": "./dist/index.js",
 	"bin": {
-		"worktree": "./dist/index.js"
+		"worktree": "dist/index.js"
 	},
 	"scripts": {
 		"dev": "bun run src/index.ts",
