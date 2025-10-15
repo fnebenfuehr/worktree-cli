@@ -25,13 +25,13 @@ Git worktrees allow you to have multiple working directories for a single reposi
 ### Global Installation (npm)
 
 ```bash
-npm install -g worktree-cli
+npm install -g @fnebenfuehr/worktree-cli
 ```
 
 ### Global Installation (Bun)
 
 ```bash
-bun install -g worktree-cli
+bun install -g @fnebenfuehr/worktree-cli
 ```
 
 ## Usage
