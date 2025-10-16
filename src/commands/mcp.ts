@@ -43,7 +43,77 @@ export async function mcpConfigCommand(options?: { json?: boolean }): Promise<nu
 
 export async function mcpTestCommand(): Promise<number> {
 	intro('Testing MCP Server');
-	log.error('Not implemented yet');
-	outro('Test failed');
-	return 1;
+
+	const spawn = Bun.spawn(['bun', 'run', './dist/index.js', 'mcp', 'start'], {
+		stdin: 'pipe',
+		stdout: 'pipe',
+		stderr: 'pipe',
+	});
+
+	try {
+		log.step('Starting MCP server');
+
+		const testRequest = {
+			jsonrpc: '2.0',
+			id: 1,
+			method: 'tools/list',
+			params: {},
+		};
+
+		spawn.stdin.write(JSON.stringify(testRequest) + '\n');
+		spawn.stdin.end();
+
+		log.step('Sending tools/list request');
+
+		const output = await new Response(spawn.stdout).text();
+
+		const lines = output.trim().split('\n');
+		let response: any = null;
+
+		for (const line of lines) {
+			try {
+				const parsed = JSON.parse(line);
+				if (parsed.id === 1) {
+					response = parsed;
+					break;
+				}
+			} catch {}
+		}
+
+		if (!response) {
+			log.error('No valid response from server');
+			spawn.kill();
+			outro('Test failed');
+			return 1;
+		}
+
+		if (response.error) {
+			log.error(`Server error: ${response.error.message}`);
+			spawn.kill();
+			outro('Test failed');
+			return 1;
+		}
+
+		const toolCount = response.result?.tools?.length || 0;
+
+		if (toolCount !== 6) {
+			log.error(`Expected 6 tools, got ${toolCount}`);
+			spawn.kill();
+			outro('Test failed');
+			return 1;
+		}
+
+		log.step(`✓ Server started successfully`);
+		log.step(`✓ Tools registered (${toolCount} tools available)`);
+		log.step('✓ Server responds to requests');
+
+		spawn.kill();
+		outro('Ready to use with AI assistants!');
+		return 0;
+	} catch (error) {
+		spawn.kill();
+		log.error(`Test failed: ${error instanceof Error ? error.message : String(error)}`);
+		outro('Test failed');
+		return 1;
+	}
 }
