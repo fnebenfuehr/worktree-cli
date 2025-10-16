@@ -7,15 +7,17 @@ import {
 	createBranch,
 	execGit,
 	findGitRootOrThrow,
+	type WorktreeInfo as GitWorktreeInfo,
 	getCurrentBranch,
 	getDefaultBranch,
 	getGitRoot,
 	addWorktree as gitAddWorktree,
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
-	type WorktreeInfo,
 } from '@/utils/git';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
+
+export type WorktreeInfo = GitWorktreeInfo;
 
 export interface StatusResult {
 	enabled: boolean;
@@ -66,7 +68,7 @@ export async function status(): Promise<StatusResult> {
 	};
 }
 
-export async function list(): Promise<WorktreeInfo[]> {
+export async function list(): Promise<GitWorktreeInfo[]> {
 	const gitRoot = await findGitRootOrThrow();
 	return gitGetWorktreeList(gitRoot);
 }
