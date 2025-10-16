@@ -20,6 +20,7 @@ Git worktrees allow you to have multiple working directories for a single reposi
 - **Lifecycle Hooks**: Automate setup/teardown with configurable post-create, pre-remove, and post-remove hooks
 - **File Management**: Copy files from main worktree (env files, configs, etc.)
 - **Safety First**: Prevents accidental removal of active worktrees
+- **AI Integration**: MCP server for Claude Code, Cody, Cursor - let AI manage worktrees for you
 
 ## Installation
 
@@ -149,6 +150,17 @@ Automate setup and teardown with lifecycle hooks. Create a `.worktreerc` in your
 Now dependencies install automatically and files are copied when creating worktrees.
 
 **See [docs/hooks.md](./docs/hooks.md) for complete configuration guide and examples.**
+
+## AI Assistant Integration
+
+Enable AI assistants to manage worktrees via MCP:
+
+```bash
+worktree mcp config  # Show config for Claude Desktop/Cody/Cursor
+worktree mcp test    # Verify setup
+```
+
+After adding the config to your AI assistant and restarting, your AI can create isolated worktrees for features, experiments, or parallel work.
 
 ## Command Reference
 
