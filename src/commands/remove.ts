@@ -1,9 +1,8 @@
-import { dirname, join } from 'node:path';
 import { loadAndValidateConfig } from '@/config/loader';
+import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
-import { FileSystemError, ValidationError } from '@/utils/errors';
-import { branchToDirName, exists } from '@/utils/fs';
-import { findGitRootOrThrow, getWorktreeList, removeWorktree } from '@/utils/git';
+import { ValidationError } from '@/utils/errors';
+import { findGitRootOrThrow } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -24,9 +23,7 @@ export async function removeCommand(
 	if (shouldPrompt && !branch) {
 		intro('Remove Worktree');
 
-		const gitRoot = await findGitRootOrThrow();
-
-		const worktrees = await getWorktreeList(gitRoot);
+		const worktrees = await worktree.list();
 
 		if (worktrees.length === 0) {
 			cancel('No worktrees found');
@@ -51,23 +48,8 @@ export async function removeCommand(
 		throw new ValidationError('Branch name required. Usage: worktree remove <branch-name>');
 	}
 
-	const gitRoot = await findGitRootOrThrow();
-
-	const dirName = branchToDirName(branch);
-	const projectRoot = dirname(gitRoot);
-	const worktreeDir = join(projectRoot, dirName);
-
-	if (!(await exists(worktreeDir))) {
-		throw new FileSystemError(
-			`No such worktree directory: ${worktreeDir}. Check branch name or use "worktree list" to see active worktrees.`
-		);
-	}
-
 	if (isInteractive()) {
-		const confirmed = await promptConfirm(
-			`Remove worktree for branch '${branch}' at ${worktreeDir}?`,
-			false
-		);
+		const confirmed = await promptConfirm(`Remove worktree for branch '${branch}'?`, false);
 
 		if (!confirmed) {
 			cancel('Removal cancelled');
@@ -75,19 +57,22 @@ export async function removeCommand(
 		}
 	}
 
+	const gitRoot = await findGitRootOrThrow();
 	const config = await loadAndValidateConfig(gitRoot);
+
+	const s = spinner();
+	s.start('Removing worktree');
+
+	const result = await worktree.remove(branch);
 
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
-			cwd: worktreeDir,
+			cwd: result.path,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
 		});
 	}
 
-	const s = spinner();
-	s.start('Removing worktree');
-	await removeWorktree(worktreeDir, gitRoot);
 	s.stop('Worktree removed successfully');
 
 	if (config) {
@@ -98,7 +83,7 @@ export async function removeCommand(
 		});
 	}
 
-	const remainingWorktrees = await getWorktreeList(gitRoot);
+	const remainingWorktrees = await worktree.list();
 	const mainWorktree = remainingWorktrees[0];
 
 	if (mainWorktree) {
