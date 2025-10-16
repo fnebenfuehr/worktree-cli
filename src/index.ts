@@ -9,6 +9,7 @@ import { Command, CommanderError } from 'commander';
 import { cloneCommand } from '@/commands/clone';
 import { createCommand } from '@/commands/create';
 import { listCommand } from '@/commands/list';
+import { mcpConfigCommand, mcpStartCommand, mcpTestCommand } from '@/commands/mcp';
 import { removeCommand } from '@/commands/remove';
 import { setupCommand } from '@/commands/setup';
 import { switchCommand } from '@/commands/switch';
@@ -128,6 +129,25 @@ program
 	.command('switch [branch]')
 	.description('Switch to an existing worktree')
 	.action((branch: string | undefined) => handleCommandError(() => switchCommand(branch))());
+
+// MCP server commands
+const mcpCommand = program.command('mcp').description('MCP server integration for AI assistants');
+
+mcpCommand
+	.command('start')
+	.description('Start MCP server (used by AI tools)')
+	.action(() => handleCommandError(() => mcpStartCommand())());
+
+mcpCommand
+	.command('config')
+	.description('Show configuration for AI tools')
+	.option('--json', 'Output JSON only')
+	.action((options: { json?: boolean }) => handleCommandError(() => mcpConfigCommand(options))());
+
+mcpCommand
+	.command('test')
+	.description('Test MCP server connection')
+	.action(() => handleCommandError(() => mcpTestCommand())());
 
 // Fire-and-forget update check (non-blocking)
 checkForUpdates(packageJson, ONE_DAY_MS).catch(() => {
