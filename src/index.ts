@@ -6,7 +6,6 @@
  */
 
 import { Command, CommanderError } from 'commander';
-import updateNotifier from 'update-notifier';
 import { cloneCommand } from '@/commands/clone';
 import { createCommand } from '@/commands/create';
 import { listCommand } from '@/commands/list';
@@ -15,24 +14,15 @@ import { setupCommand } from '@/commands/setup';
 import { switchCommand } from '@/commands/switch';
 import { UserCancelledError, WorktreeError } from '@/utils/errors';
 import { log } from '@/utils/prompts';
+import { checkForUpdates } from '@/utils/update-checker';
 import packageJson from '../package.json';
 
 const VERSION = packageJson.version;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_INTERVAL = ONE_DAY_MS;
 
-/**
- * Check for available updates to the CLI
- * Non-blocking background check, runs once per day
- */
-function checkVersion(): void {
-	updateNotifier({
-		pkg: packageJson,
-		updateCheckInterval: UPDATE_CHECK_INTERVAL,
-	}).notify({
-		isGlobal: true,
-		defer: false,
-	});
+async function checkVersion(): Promise<void> {
+	await checkForUpdates(packageJson, UPDATE_CHECK_INTERVAL);
 }
 
 /**
@@ -68,7 +58,6 @@ program
 	.description('A modern CLI tool for managing git worktrees with ease')
 	.version(VERSION, '-v, --version', 'Show version')
 	.option('--verbose', 'Enable verbose output')
-	.option('--no-update-check', 'Disable update check')
 	.addHelpText(
 		'after',
 		`
@@ -145,12 +134,9 @@ program
 	.description('Switch to an existing worktree')
 	.action((branch: string | undefined) => handleCommandError(() => switchCommand(branch))());
 
-// Check for updates (non-blocking, unless --no-update-check flag is present)
-if (!process.argv.includes('--no-update-check')) {
-	checkVersion();
-}
+await checkVersion();
 
-// Parse arguments - wrap in try-catch for unexpected errors
+// Parse arguments
 try {
 	await program.parseAsync(process.argv);
 } catch (error) {
