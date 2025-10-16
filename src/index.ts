@@ -19,11 +19,6 @@ import packageJson from '../package.json';
 
 const VERSION = packageJson.version;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-const UPDATE_CHECK_INTERVAL = ONE_DAY_MS;
-
-async function checkVersion(): Promise<void> {
-	await checkForUpdates(packageJson, UPDATE_CHECK_INTERVAL);
-}
 
 /**
  * Wraps command actions with consistent error handling
@@ -134,7 +129,10 @@ program
 	.description('Switch to an existing worktree')
 	.action((branch: string | undefined) => handleCommandError(() => switchCommand(branch))());
 
-await checkVersion();
+// Fire-and-forget update check (non-blocking)
+checkForUpdates(packageJson, ONE_DAY_MS).catch(() => {
+	// Silently ignore errors
+});
 
 // Parse arguments
 try {
