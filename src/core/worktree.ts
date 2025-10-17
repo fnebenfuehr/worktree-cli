@@ -15,6 +15,8 @@ import {
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
 } from '@/utils/git';
+import { log } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export type WorktreeInfo = GitWorktreeInfo;
@@ -49,17 +51,17 @@ export async function status(): Promise<StatusResult> {
 	const gitRoot = await findGitRootOrThrow();
 	const gitDirResult = await execGit(['rev-parse', '--git-dir'], gitRoot);
 
-	if (!gitDirResult.success) {
+	if (gitDirResult.error) {
 		return { enabled: false, count: 0 };
 	}
 
-	const gitDir = gitDirResult.stdout;
+	const gitDir = gitDirResult.data.stdout;
 	const worktreesPath = join(gitRoot, gitDir, 'worktrees');
 	const hasWorktrees = await exists(worktreesPath);
 	const isBare = gitDir.endsWith('.git') || gitDir.includes('.bare');
 
 	const worktrees = await gitGetWorktreeList(gitRoot);
-	const defaultBranch = worktrees.length > 0 ? worktrees[0]?.branch : undefined;
+	const defaultBranch = await getDefaultBranch(gitRoot);
 
 	return {
 		enabled: hasWorktrees || isBare,
@@ -95,7 +97,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 		);
 	}
 
-	const base = baseBranch || (await getDefaultBranch(gitRoot));
+	const base = baseBranch || (await getDefaultBranch(gitRoot)) || 'main';
 	const branchAlreadyExists = await branchExists(branch, gitRoot);
 
 	if (!branchAlreadyExists) {
@@ -145,11 +147,7 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		);
 	}
 
-	if (force) {
-		await gitRemoveWorktree(`${worktreeDir} --force`, gitRoot);
-	} else {
-		await gitRemoveWorktree(worktreeDir, gitRoot);
-	}
+	await gitRemoveWorktree(worktreeDir, gitRoot, { force });
 
 	return {
 		path: worktreeDir,
@@ -157,18 +155,25 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 }
 
 async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]): Promise<void> {
+	const rollbackErrors: Error[] = [];
+
 	for (const item of itemsToRollback) {
-		try {
-			await move(`${tempDir}/${item}`, item);
-		} catch {
-			// Continue rollback
+		const { error } = await tryCatch(move(`${tempDir}/${item}`, item));
+		if (error) {
+			rollbackErrors.push(error);
 		}
 	}
 
-	try {
-		await $`rm -rf ${tempDir}`.quiet();
-	} catch {
-		// Ignore cleanup errors
+	const { error: cleanupError } = await tryCatch($`rm -rf ${tempDir}`.quiet());
+	if (cleanupError) {
+		rollbackErrors.push(cleanupError);
+	}
+
+	if (rollbackErrors.length > 0) {
+		const errorMessages = rollbackErrors.map((e) => e.message).join('; ');
+		throw new FileSystemError(
+			`Setup rollback completed with ${rollbackErrors.length} error(s): ${errorMessages}`
+		);
 	}
 }
 
@@ -186,7 +191,10 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 	}
 
 	const statusResult = await execGit(['status', '--porcelain', '--untracked-files=no']);
-	if (statusResult.stdout.trim()) {
+	if (statusResult.error) {
+		throw statusResult.error;
+	}
+	if (statusResult.data.stdout.trim()) {
 		throw new GitError(
 			'Uncommitted changes detected. Commit or stash changes before setup.',
 			'git status --porcelain --untracked-files=no'
@@ -226,15 +234,14 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			}
 		}
 
-		try {
-			await move(tempDir, targetDirName);
-		} catch (error) {
-			if ((error as { code?: string }).code === 'EEXIST') {
+		const { error: moveError } = await tryCatch(move(tempDir, targetDirName));
+		if (moveError) {
+			if ((moveError as { code?: string }).code === 'EEXIST') {
 				throw new FileSystemError(
 					`Directory '${targetDirName}' already exists. Cannot proceed with setup.`
 				);
 			}
-			throw error;
+			throw moveError;
 		}
 
 		return {
@@ -242,7 +249,11 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			worktreePath: join(process.cwd(), targetDirName),
 		};
 	} catch (error) {
-		await rollbackSetup(tempDir, itemsToRollback);
+		const { error: rollbackError } = await tryCatch(rollbackSetup(tempDir, itemsToRollback));
+		if (rollbackError) {
+			// Rollback failed but preserve original error
+			log.error(`Rollback also failed: ${rollbackError.message}`);
+		}
 
 		if (
 			error instanceof ValidationError ||

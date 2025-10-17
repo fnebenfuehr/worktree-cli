@@ -2,6 +2,7 @@ import { dirname, join } from 'node:path';
 import type { WorktreeConfig } from '@/config/loader';
 import { copyFile, createDir } from '@/utils/fs';
 import { log } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 import { isSafePath } from '@/utils/validation';
 
 export interface CopyResult {
@@ -35,15 +36,13 @@ export async function copyConfigFiles(opts: {
 		const sourcePath = join(opts.gitRoot, file);
 		const destPath = join(opts.destDir, file);
 
-		try {
+		const { error } = await tryCatch(async () => {
 			await createDir(dirname(destPath));
 			await copyFile(sourcePath, destPath);
-			result.success++;
-			if (opts.verbose) {
-				log.step(`Copied: ${file}`);
-			}
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : String(error);
+		});
+
+		if (error) {
+			const errorMsg = error.message || String(error);
 			if (errorMsg.includes('ENOENT') || errorMsg.includes('no such file')) {
 				result.skipped++;
 				if (opts.verbose) {
@@ -52,6 +51,11 @@ export async function copyConfigFiles(opts: {
 			} else {
 				result.failed++;
 				log.warn(`Failed to copy ${file}: ${errorMsg}`);
+			}
+		} else {
+			result.success++;
+			if (opts.verbose) {
+				log.step(`Copied: ${file}`);
 			}
 		}
 	}

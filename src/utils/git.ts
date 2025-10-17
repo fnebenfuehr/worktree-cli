@@ -1,37 +1,48 @@
 import { $ } from 'bun';
 import { GitError, ValidationError } from '@/utils/errors';
 import { findGitReposInSubdirs } from '@/utils/fs';
+import { type Result, tryCatch } from '@/utils/try-catch';
 
 export interface GitCommandResult {
-	success: boolean;
 	stdout: string;
 	stderr: string;
 	exitCode: number;
 }
 
-export async function execGit(args: string[], cwd?: string): Promise<GitCommandResult> {
-	try {
+export async function execGit(
+	args: string[],
+	cwd?: string
+): Promise<Result<GitCommandResult, GitError>> {
+	const { error, data } = await tryCatch(async () => {
 		const proc = cwd ? await $`git ${args}`.cwd(cwd).quiet() : await $`git ${args}`.quiet();
-
 		return {
-			success: proc.exitCode === 0,
 			stdout: proc.stdout.toString().trim(),
 			stderr: proc.stderr.toString().trim(),
 			exitCode: proc.exitCode,
 		};
-	} catch (error) {
+	});
+
+	if (error) {
 		return {
-			success: false,
-			stdout: '',
-			stderr: error instanceof Error ? error.message : String(error),
-			exitCode: 1,
+			error: new GitError(error.message, `git ${args.join(' ')}`, { cause: error }),
+			data: null,
 		};
 	}
+
+	if (data.exitCode !== 0) {
+		return {
+			error: new GitError(data.stderr || 'Git command failed', `git ${args.join(' ')}`),
+			data: null,
+		};
+	}
+
+	return { error: null, data };
 }
 
 export async function getGitRoot(cwd?: string): Promise<string | null> {
-	const result = await execGit(['rev-parse', '--show-toplevel'], cwd);
-	return result.success ? result.stdout : null;
+	const { error, data } = await execGit(['rev-parse', '--show-toplevel'], cwd);
+	if (error) return null;
+	return data.stdout;
 }
 
 export async function findGitRootOrThrow(): Promise<string> {
@@ -54,26 +65,27 @@ export async function findGitRootOrThrow(): Promise<string> {
 }
 
 export async function getCurrentBranch(cwd?: string): Promise<string | null> {
-	const result = await execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
-	return result.success ? result.stdout : null;
+	const { error, data } = await execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
+	if (error) return null;
+	return data.stdout;
 }
 
-export async function getDefaultBranch(cwd?: string): Promise<string> {
-	const result = await execGit(['remote', 'show', 'origin'], cwd);
+export async function getDefaultBranch(cwd?: string): Promise<string | undefined> {
+	const { error, data } = await execGit(['remote', 'show', 'origin'], cwd);
 
-	if (result.success) {
-		const match = result.stdout.match(/HEAD branch:\s*(.+)/);
+	if (!error) {
+		const match = data.stdout.match(/HEAD branch:\s*(.+)/);
 		if (match?.[1]) {
 			return match[1].trim();
 		}
 	}
 
-	return 'main';
+	return undefined;
 }
 
 export async function branchExists(branch: string, cwd?: string): Promise<boolean> {
-	const result = await execGit(['show-ref', '--quiet', `refs/heads/${branch}`], cwd);
-	return result.success;
+	const { error } = await execGit(['show-ref', '--quiet', `refs/heads/${branch}`], cwd);
+	return error === null;
 }
 
 export async function createBranch(
@@ -82,20 +94,13 @@ export async function createBranch(
 	cwd?: string
 ): Promise<void> {
 	const fetchResult = await execGit(['fetch', 'origin', baseBranch], cwd);
-	if (!fetchResult.success) {
-		throw new GitError(
-			`Failed to fetch origin/${baseBranch}. Is the remote configured correctly?`,
-			`git fetch origin ${baseBranch}`
-		);
+	if (fetchResult.error) {
+		throw fetchResult.error;
 	}
 
 	const branchResult = await execGit(['branch', branch, `origin/${baseBranch}`], cwd);
-	if (!branchResult.success) {
-		const errorMsg = branchResult.stderr.trim() || 'Unknown error';
-		throw new GitError(
-			`Failed to create branch '${branch}' from origin/${baseBranch}: ${errorMsg}`,
-			`git branch ${branch} origin/${baseBranch}`
-		);
+	if (branchResult.error) {
+		throw branchResult.error;
 	}
 }
 
@@ -107,7 +112,8 @@ export interface WorktreeInfo {
 
 export async function listWorktrees(cwd?: string): Promise<string> {
 	const result = await execGit(['worktree', 'list'], cwd);
-	return result.stdout;
+	if (result.error) throw result.error;
+	return result.data.stdout;
 }
 
 // Example input:
@@ -144,37 +150,26 @@ export async function getWorktreeList(cwd?: string): Promise<WorktreeInfo[]> {
 }
 
 export async function addWorktree(path: string, branch: string, cwd?: string): Promise<void> {
-	const result = await execGit(['worktree', 'add', path, branch], cwd);
-
-	if (!result.success) {
-		let message = `Failed to add worktree at '${path}' for branch '${branch}'`;
-		const stderr = result.stderr.trim();
-
-		if (stderr.includes('already exists')) {
-			message += ': Directory already exists';
-		} else if (stderr.includes('is already checked out')) {
-			message += ': Branch is already checked out in another worktree';
-		} else if (stderr) {
-			message += `: ${stderr}`;
-		}
-
-		throw new GitError(message, `git worktree add ${path} ${branch}`);
-	}
+	const { error } = await execGit(['worktree', 'add', path, branch], cwd);
+	if (error) throw error;
 }
 
-export async function removeWorktree(path: string, cwd?: string): Promise<void> {
-	const result = await execGit(['worktree', 'remove', path], cwd);
-
-	if (!result.success) {
-		const errorMsg = result.stderr.trim() || 'Unknown error';
-		throw new GitError(
-			`Failed to remove worktree at '${path}': ${errorMsg}`,
-			`git worktree remove ${path}`
-		);
+export async function removeWorktree(
+	path: string,
+	cwd?: string,
+	options?: { force?: boolean }
+): Promise<void> {
+	const args = ['worktree', 'remove'];
+	if (options?.force) {
+		args.push('--force');
 	}
+	args.push(path);
+
+	const { error } = await execGit(args, cwd);
+	if (error) throw error;
 }
 
 export async function isGitRepository(cwd?: string): Promise<boolean> {
-	const result = await execGit(['rev-parse', '--git-dir'], cwd);
-	return result.success;
+	const { error } = await execGit(['rev-parse', '--git-dir'], cwd);
+	return error === null;
 }
