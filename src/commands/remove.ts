@@ -2,7 +2,7 @@ import { loadAndValidateConfig } from '@/config/loader';
 import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
 import { GitError, ValidationError } from '@/utils/errors';
-import { findGitRootOrThrow } from '@/utils/git';
+import { getGitRoot } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -59,7 +59,7 @@ export async function removeCommand(
 		}
 	}
 
-	const gitRoot = await findGitRootOrThrow();
+	const gitRoot = await getGitRoot();
 
 	// Verify worktree exists before doing expensive checks
 	const worktrees = await worktree.list();

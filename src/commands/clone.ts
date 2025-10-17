@@ -1,8 +1,9 @@
 import { mkdir } from 'node:fs/promises';
 import { $ } from 'bun';
 import { FileSystemError, GitError, ValidationError, WorktreeError } from '@/utils/errors';
-import { extractRepoName, move } from '@/utils/fs';
+import { move } from '@/utils/fs';
 import { getCurrentBranch } from '@/utils/git';
+import { extractRepoName } from '@/utils/naming';
 import { intro, isInteractive, outro, promptGitUrl, spinner } from '@/utils/prompts';
 import { isValidGitUrl, VALIDATION_ERRORS } from '@/utils/validation';
 

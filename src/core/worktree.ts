@@ -8,22 +8,22 @@ import {
 	UnmergedBranchError,
 	ValidationError,
 } from '@/utils/errors';
-import { branchToDirName, createDir, exists, getAllItems, move } from '@/utils/fs';
+import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
 	branchExists,
 	createBranch,
 	execGit,
-	findGitRootOrThrow,
 	type WorktreeInfo as GitWorktreeInfo,
 	getCurrentBranch,
 	getDefaultBranch,
 	getGitRoot,
 	addWorktree as gitAddWorktree,
-	getWorktreeList as gitGetWorktreeList,
+	getWorktrees as gitGetWorktrees,
 	removeWorktree as gitRemoveWorktree,
 	isBranchMerged,
 	isWorktree,
 } from '@/utils/git';
+import { branchToDirName } from '@/utils/naming';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
@@ -57,31 +57,23 @@ export interface SetupResult {
 }
 
 export async function status(): Promise<StatusResult> {
-	const gitRoot = await findGitRootOrThrow();
-	const gitDirResult = await execGit(['rev-parse', '--git-dir'], gitRoot);
-
-	if (gitDirResult.error) {
-		return { enabled: false, count: 0 };
-	}
-
-	const gitDir = gitDirResult.data.stdout;
-	const worktreesPath = join(gitRoot, gitDir, 'worktrees');
-	const hasWorktrees = await exists(worktreesPath);
-	const isBare = gitDir.endsWith('.git') || gitDir.includes('.bare');
-
-	const worktrees = await gitGetWorktreeList(gitRoot);
+	const gitRoot = await getGitRoot();
+	const worktrees = await gitGetWorktrees(gitRoot);
 	const defaultBranch = await getDefaultBranch(gitRoot);
 
+	// enabled = repo has worktree structure (worktrees exist)
+	const enabled = worktrees.length > 0;
+
 	return {
-		enabled: hasWorktrees || isBare,
+		enabled,
 		count: worktrees.length,
 		defaultBranch,
 	};
 }
 
 export async function list(): Promise<GitWorktreeInfo[]> {
-	const gitRoot = await findGitRootOrThrow();
-	return gitGetWorktreeList(gitRoot);
+	const gitRoot = await getGitRoot();
+	return gitGetWorktrees(gitRoot);
 }
 
 export async function create(branch: string, baseBranch?: string): Promise<CreateResult> {
@@ -91,7 +83,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 		);
 	}
 
-	const gitRoot = await findGitRootOrThrow();
+	const gitRoot = await getGitRoot();
 	const dirName = branchToDirName(branch);
 	const projectRoot = dirname(gitRoot);
 	const worktreeDir = join(projectRoot, dirName);
@@ -106,7 +98,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 		);
 	}
 
-	const base = baseBranch || (await getDefaultBranch(gitRoot)) || 'main';
+	const base = baseBranch || (await getDefaultBranch(gitRoot));
 	const branchAlreadyExists = await branchExists(branch, gitRoot);
 
 	if (!branchAlreadyExists) {
@@ -123,8 +115,8 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 }
 
 export async function switchTo(branch: string): Promise<SwitchResult> {
-	const gitRoot = await findGitRootOrThrow();
-	const worktrees = await gitGetWorktreeList(gitRoot);
+	const gitRoot = await getGitRoot();
+	const worktrees = await gitGetWorktrees(gitRoot);
 
 	if (worktrees.length === 0) {
 		throw new FileSystemError('No worktrees found');
@@ -145,7 +137,7 @@ export async function switchTo(branch: string): Promise<SwitchResult> {
 }
 
 export async function remove(identifier: string, force = false): Promise<RemoveResult> {
-	const gitRoot = await findGitRootOrThrow();
+	const gitRoot = await getGitRoot();
 	const dirName = branchToDirName(identifier);
 	const projectRoot = dirname(gitRoot);
 	const worktreeDir = join(projectRoot, dirName);
@@ -172,7 +164,7 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		}
 
 		// Check if branch is merged
-		const defaultBranch = (await getDefaultBranch(gitRoot)) || 'main';
+		const defaultBranch = await getDefaultBranch(gitRoot);
 		const merged = await isBranchMerged(identifier, defaultBranch, gitRoot);
 
 		if (merged === null) {
@@ -217,10 +209,12 @@ async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]
 export async function setup(targetDir?: string): Promise<SetupResult> {
 	if (await isWorktree()) {
 		throw new ValidationError(
-			'Already in a worktree directory. Run setup from the main repository root, not from a worktree.'
+			'Already in a worktree directory. Worktree structure already set up - no setup needed.'
 		);
 	}
 
+	// Verify we're at the repository root (not a subdirectory)
+	// isWorktree() only checks if in a worktree vs main repo, not if at root
 	if (!(await exists('.git'))) {
 		throw new ValidationError(
 			'Not in a git repository root (no .git folder found). Run this command from the root of your cloned repository.'
@@ -228,10 +222,6 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 	}
 
 	const currentBranch = await getCurrentBranch();
-
-	if (!currentBranch) {
-		throw new GitError('Could not determine current branch', 'git branch --show-current');
-	}
 
 	const statusResult = await execGit(['status', '--porcelain', '--untracked-files=no']);
 	if (statusResult.error) {
@@ -242,11 +232,6 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			'Uncommitted changes detected. Commit or stash changes before setup.',
 			'git status --porcelain --untracked-files=no'
 		);
-	}
-
-	const gitRoot = await getGitRoot('..');
-	if (gitRoot) {
-		throw new ValidationError('Already appears to be in a worktree structure. No setup needed.');
 	}
 
 	const tempDir = `.tmp-worktree-setup-${process.pid}`;

@@ -1,6 +1,8 @@
+import { readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { $ } from 'bun';
 import { GitError, ValidationError } from '@/utils/errors';
-import { findGitReposInSubdirs } from '@/utils/fs';
+import { exists } from '@/utils/fs';
 import { type Result, tryCatch } from '@/utils/try-catch';
 
 export interface GitCommandResult {
@@ -39,38 +41,57 @@ export async function execGit(
 	return { error: null, data };
 }
 
-export async function getGitRoot(cwd?: string): Promise<string | null> {
-	const { error, data } = await execGit(['rev-parse', '--show-toplevel'], cwd);
-	if (error) return null;
-	return data.stdout;
-}
+export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
+	const { error, data: entries } = await tryCatch(readdir(dir, { withFileTypes: true }));
+	if (error) return [];
 
-export async function findGitRootOrThrow(): Promise<string> {
-	let gitRoot = await getGitRoot();
-
-	if (!gitRoot) {
-		const repos = await findGitReposInSubdirs(process.cwd());
-		if (repos.length > 0) {
-			gitRoot = repos[0] ?? null;
+	const repos: string[] = [];
+	for (const entry of entries) {
+		if (entry.isDirectory()) {
+			const gitDir = join(dir, entry.name, '.git');
+			if (await exists(gitDir)) {
+				repos.push(join(dir, entry.name));
+			}
 		}
 	}
 
-	if (!gitRoot) {
+	return repos;
+}
+
+export async function getGitRoot(cwd?: string): Promise<string> {
+	const { error, data } = await execGit(['rev-parse', '--show-toplevel'], cwd);
+
+	if (error || !data) {
+		// Check if we can find a git repo in subdirectories
+		const repos = await findGitReposInSubdirs(cwd || process.cwd());
+		const firstRepo = repos[0];
+		if (firstRepo) {
+			return firstRepo;
+		}
+
 		throw new ValidationError(
-			'Not inside a git repository and no git repository found in subfolders. Run this from a git repository or use "worktree clone" first.'
+			'Not inside a git repository and no git repository found in subfolders. Run this from a git repository or use "worktree clone" first.',
+			{ cause: error }
 		);
 	}
 
-	return gitRoot;
-}
-
-export async function getCurrentBranch(cwd?: string): Promise<string | null> {
-	const { error, data } = await execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
-	if (error) return null;
 	return data.stdout;
 }
 
-export async function getDefaultBranch(cwd?: string): Promise<string | undefined> {
+export async function getCurrentBranch(cwd?: string): Promise<string> {
+	const { error, data } = await execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
+
+	if (error) {
+		throw new GitError('Could not determine current branch', 'git rev-parse --abbrev-ref HEAD', {
+			cause: error,
+		});
+	}
+
+	return data.stdout;
+}
+
+export async function getDefaultBranch(cwd?: string): Promise<string> {
+	// Try 1: Get default branch from remote
 	const { error, data } = await execGit(['remote', 'show', 'origin'], cwd);
 
 	if (!error) {
@@ -80,7 +101,31 @@ export async function getDefaultBranch(cwd?: string): Promise<string | undefined
 		}
 	}
 
-	return undefined;
+	// Try 2: Check if 'main' branch exists locally
+	if (await branchExists('main', cwd)) {
+		return 'main';
+	}
+
+	// Try 3: Check if 'master' branch exists locally
+	if (await branchExists('master', cwd)) {
+		return 'master';
+	}
+
+	// Try 4: Use current branch as fallback
+	const { error: currentError, data: currentData } = await execGit(
+		['rev-parse', '--abbrev-ref', 'HEAD'],
+		cwd
+	);
+
+	if (!currentError && currentData.stdout) {
+		return currentData.stdout;
+	}
+
+	// If all strategies fail, throw
+	throw new GitError(
+		'Could not determine default branch. No remote configured, and neither main nor master branches exist locally.',
+		'git remote show origin'
+	);
 }
 
 export async function branchExists(branch: string, cwd?: string): Promise<boolean> {
@@ -121,7 +166,7 @@ export async function listWorktrees(cwd?: string): Promise<string> {
 // /path/to/feature  def5678 [feature/my-feature]
 const WORKTREE_LINE_PATTERN = /^(.+?)\s+([a-f0-9]+)(?:\s+[[(](.+?)[\])])?$/;
 
-export async function getWorktreeList(cwd?: string): Promise<WorktreeInfo[]> {
+export async function getWorktrees(cwd?: string): Promise<WorktreeInfo[]> {
 	const output = await listWorktrees(cwd);
 
 	if (!output) {

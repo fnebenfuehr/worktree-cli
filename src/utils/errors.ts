@@ -2,9 +2,10 @@ export class WorktreeError extends Error {
 	constructor(
 		message: string,
 		public readonly code: string,
-		public readonly exitCode: number = 1
+		public readonly exitCode: number = 1,
+		options?: ErrorOptions
 	) {
-		super(message);
+		super(message, options);
 		this.name = 'WorktreeError';
 		Error.captureStackTrace(this, this.constructor);
 	}
@@ -16,31 +17,28 @@ export class GitError extends WorktreeError {
 		public readonly command: string,
 		options?: ErrorOptions
 	) {
-		super(message, 'GIT_ERROR', 1);
+		super(message, 'GIT_ERROR', 1, options);
 		this.name = 'GitError';
-		if (options?.cause) {
-			this.cause = options.cause;
-		}
 	}
 }
 
 export class ValidationError extends WorktreeError {
-	constructor(message: string) {
-		super(message, 'VALIDATION_ERROR', 1);
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, 'VALIDATION_ERROR', 1, options);
 		this.name = 'ValidationError';
 	}
 }
 
 export class FileSystemError extends WorktreeError {
-	constructor(message: string) {
-		super(message, 'FS_ERROR', 1);
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, 'FS_ERROR', 1, options);
 		this.name = 'FileSystemError';
 	}
 }
 
 export class UserCancelledError extends WorktreeError {
-	constructor(message: string = 'Operation cancelled') {
-		super(message, 'USER_CANCELLED', 0);
+	constructor(message: string = 'Operation cancelled', options?: ErrorOptions) {
+		super(message, 'USER_CANCELLED', 0, options);
 		this.name = 'UserCancelledError';
 	}
 }

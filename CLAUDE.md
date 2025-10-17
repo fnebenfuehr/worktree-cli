@@ -72,7 +72,7 @@ Core functions wrapping git commands:
 - `getGitRoot`, `findGitRootOrThrow`: Find repo root
 - `getCurrentBranch`, `getDefaultBranch`: Branch detection
 - `branchExists`, `createBranch`: Branch operations
-- `getWorktreeList`: Parse `git worktree list` output
+- `getWorktrees`: Parse `git worktree list` output
 - `addWorktree`, `removeWorktree`: Worktree management
 
 ### Error Handling (`src/utils/errors.ts`)
