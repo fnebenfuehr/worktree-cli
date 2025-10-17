@@ -47,7 +47,7 @@ export class UncommittedChangesError extends GitError {
 	constructor(identifier: string) {
 		super(
 			`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
-			'git status --porcelain --untracked-files=no'
+			'git status --porcelain'
 		);
 		this.name = 'UncommittedChangesError';
 	}

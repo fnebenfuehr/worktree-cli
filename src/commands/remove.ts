@@ -103,17 +103,21 @@ export async function removeCommand(
 
 			if (!proceedWithForce) {
 				cancel('Removal cancelled');
-				return 0;
 			}
 
 			s.start('Removing worktree (forced)');
-			await worktree.remove(branch, true);
+			const { error: forceError } = await tryCatch(() => worktree.remove(branch, true));
+			s.stop();
+
+			if (forceError) {
+				throw forceError;
+			}
 		} else {
 			throw removeError;
 		}
+	} else {
+		s.stop('Worktree removed successfully');
 	}
-
-	s.stop('Worktree removed successfully');
 
 	if (config) {
 		await executeHooks(config, 'post_remove', {
