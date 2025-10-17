@@ -1,5 +1,21 @@
 # worktree-cli
 
+## 1.1.0
+
+### Minor Changes
+
+- 357032b: Add MCP (Model Context Protocol) server support
+
+  - New `worktree mcp start` command to run as MCP server
+  - New `worktree mcp config` command to show AI assistant configuration
+  - New `worktree mcp test` command to verify server functionality
+  - Expose all worktree operations as MCP tools for AI assistants
+
+### Patch Changes
+
+- d2a9f3d: Fix hook command execution failing due to improper argument parsing. Hook commands with arguments (e.g., "bun install") now execute correctly via platform-specific shell wrapper (sh -c on Unix, cmd /c on Windows). Includes improved error messages with shell context.
+- ef0366f: Replace update-notifier with lightweight implementation, reducing bundle size by ~400KB (~10%). Update checks are now non-blocking and more robust.
+
 ## 1.0.0
 
 ### Major Changes
