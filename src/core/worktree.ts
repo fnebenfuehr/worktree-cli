@@ -22,6 +22,7 @@ import {
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
 	isBranchMerged,
+	isWorktree,
 } from '@/utils/git';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
@@ -156,16 +157,13 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 	}
 
 	if (!force) {
-		// Check for uncommitted changes
-		const statusResult = await execGit(
-			['status', '--porcelain', '--untracked-files=no'],
-			worktreeDir
-		);
+		// Check for uncommitted changes (includes both tracked changes and untracked files)
+		const statusResult = await execGit(['status', '--porcelain'], worktreeDir);
 
 		if (statusResult.error) {
 			throw new GitError(
 				`Could not check status of worktree '${identifier}': ${statusResult.error.message}`,
-				'git status --porcelain --untracked-files=no'
+				'git status --porcelain'
 			);
 		}
 
@@ -220,6 +218,12 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 	if (!(await exists('.git'))) {
 		throw new ValidationError(
 			'Not in a git repository root (no .git folder found). Run this command from the root of your cloned repository.'
+		);
+	}
+
+	if (await isWorktree()) {
+		throw new ValidationError(
+			'Already in a worktree directory. Run setup from the main repository root, not from a worktree.'
 		);
 	}
 

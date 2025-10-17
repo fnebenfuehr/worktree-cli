@@ -174,6 +174,19 @@ export async function isGitRepository(cwd?: string): Promise<boolean> {
 	return error === null;
 }
 
+export async function isWorktree(cwd?: string): Promise<boolean> {
+	const gitPath = cwd ? `${cwd}/.git` : '.git';
+
+	const { error, data: gitStat } = await tryCatch(async () => {
+		const { stat } = await import('node:fs/promises');
+		return stat(gitPath);
+	});
+
+	if (error || !gitStat) return false;
+
+	return gitStat.isFile();
+}
+
 export async function isBranchMerged(
 	branch: string,
 	targetBranch: string,
