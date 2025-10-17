@@ -60,6 +60,14 @@ export async function removeCommand(
 	const gitRoot = await findGitRootOrThrow();
 	const config = await loadAndValidateConfig(gitRoot);
 
+	// Capture current directory before removal (worktree deletion may invalidate cwd)
+	let currentDir: string | null = null;
+	try {
+		currentDir = process.cwd();
+	} catch {
+		// Already in invalid directory, ignore
+	}
+
 	const s = spinner();
 	s.start('Removing worktree');
 
@@ -86,8 +94,7 @@ export async function removeCommand(
 	const remainingWorktrees = await worktree.list();
 	const mainWorktree = remainingWorktrees[0];
 
-	if (mainWorktree) {
-		const currentDir = process.cwd();
+	if (mainWorktree && currentDir) {
 		const isInMainWorktree = currentDir === mainWorktree.path;
 
 		outro(`Worktree for branch '${branch}' has been removed`);

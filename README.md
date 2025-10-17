@@ -125,8 +125,6 @@ Remove a worktree when you're done:
 worktree remove feature/new-feature
 ```
 
-**Safety**: You cannot remove a worktree you're currently inside.
-
 #### List All Worktrees
 
 See all active worktrees:
@@ -239,7 +237,7 @@ Remove an existing git worktree.
 
 **Safety:**
 
-- Prevents removal if you're currently in that worktree
+- Cannot remove main worktree (first worktree in list)
 
 **Example:**
 
