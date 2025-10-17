@@ -1,5 +1,5 @@
-import { FileSystemError, ValidationError } from '@/utils/errors';
-import { findGitRootOrThrow, getWorktreeList } from '@/utils/git';
+import * as worktree from '@/core/worktree';
+import { ValidationError } from '@/utils/errors';
 import {
 	cancel,
 	intro,
@@ -19,11 +19,9 @@ export async function switchCommand(branch?: string): Promise<number> {
 		intro('Switch Worktree');
 	}
 
-	const gitRoot = await findGitRootOrThrow();
-
 	const s = spinner();
 	s.start('Finding worktrees');
-	const worktrees = await getWorktreeList(gitRoot);
+	const worktrees = await worktree.list();
 	s.stop('Worktrees loaded');
 
 	if (worktrees.length === 0) {
@@ -46,16 +44,10 @@ export async function switchCommand(branch?: string): Promise<number> {
 		throw new ValidationError('Branch name required. Usage: worktree switch <branch-name>');
 	}
 
-	const targetWorktree = worktrees.find((wt) => wt.branch === branch);
+	const result = await worktree.switchTo(branch);
 
-	if (!targetWorktree) {
-		throw new FileSystemError(
-			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
-		);
-	}
-
-	outro(`Switching to worktree: ${branch}`);
-	note(`cd ${targetWorktree.path}`, 'To switch to this worktree, run:');
+	outro(`Switching to worktree: ${result.branch}`);
+	note(`cd ${result.path}`, 'To switch to this worktree, run:');
 
 	return 0;
 }
