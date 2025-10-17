@@ -3,6 +3,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { log } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 
 const UpdateCheckCacheSchema = z.object({
 	lastCheck: z.number(),
@@ -33,53 +34,56 @@ export function setCacheDir(dir: string): void {
 }
 
 async function ensureCacheDir(): Promise<void> {
-	try {
-		await mkdir(cacheDir, { recursive: true });
-	} catch (error) {
-		if (process.env.DEBUG) {
-			console.error('Failed to create cache directory:', error);
-		}
+	const { error } = await tryCatch(mkdir(cacheDir, { recursive: true }));
+	if (process.env.DEBUG && error) {
+		console.error('Failed to create cache directory:', error);
 	}
 }
 
 async function readCache(): Promise<UpdateCheckCache | null> {
-	try {
-		const data = await readFile(cacheFile, 'utf-8');
-		const parsed = JSON.parse(data);
+	const { error, data } = await tryCatch(async () => {
+		const fileData = await readFile(cacheFile, 'utf-8');
+		const parsed = JSON.parse(fileData);
 		return UpdateCheckCacheSchema.parse(parsed);
-	} catch (error) {
+	});
+
+	if (error) {
 		if (process.env.DEBUG) {
 			console.error('Failed to read cache:', error);
 		}
 		return null;
 	}
+
+	return data;
 }
 
 async function writeCache(cache: UpdateCheckCache): Promise<void> {
-	try {
+	const { error } = await tryCatch(async () => {
 		await ensureCacheDir();
 		await writeFile(cacheFile, JSON.stringify(cache, null, 2), 'utf-8');
-	} catch (error) {
-		if (process.env.DEBUG) {
-			console.error('Failed to write cache:', error);
-		}
+	});
+
+	if (process.env.DEBUG && error) {
+		console.error('Failed to write cache:', error);
 	}
 }
 
 async function fetchLatestVersion(packageName: string): Promise<string | null> {
-	try {
-		const response = await fetch(`https://registry.npmjs.org/${packageName}/latest`, {
+	const { error, data: response } = await tryCatch(
+		fetch(`https://registry.npmjs.org/${packageName}/latest`, {
 			headers: { Accept: 'application/json' },
 			signal: AbortSignal.timeout(3000),
-		});
+		})
+	);
 
-		if (!response.ok) return null;
+	if (error || !response.ok) return null;
 
-		const data = (await response.json()) as { version?: string };
-		return data.version || null;
-	} catch {
-		return null;
-	}
+	const { error: jsonError, data } = await tryCatch(
+		async () => (await response.json()) as { version?: string }
+	);
+	if (jsonError) return null;
+
+	return data.version || null;
 }
 
 function isValidVersion(version: string): boolean {
