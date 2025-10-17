@@ -215,15 +215,15 @@ async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]
 }
 
 export async function setup(targetDir?: string): Promise<SetupResult> {
-	if (!(await exists('.git'))) {
-		throw new ValidationError(
-			'Not in a git repository root (no .git folder found). Run this command from the root of your cloned repository.'
-		);
-	}
-
 	if (await isWorktree()) {
 		throw new ValidationError(
 			'Already in a worktree directory. Run setup from the main repository root, not from a worktree.'
+		);
+	}
+
+	if (!(await exists('.git'))) {
+		throw new ValidationError(
+			'Not in a git repository root (no .git folder found). Run this command from the root of your cloned repository.'
 		);
 	}
 

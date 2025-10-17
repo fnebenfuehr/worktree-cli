@@ -11,7 +11,7 @@ import { $ } from 'bun';
 import * as worktree from '@/core/worktree';
 import {
 	FileSystemError,
-	MergeStatusUnknownError,
+	GitError,
 	UncommittedChangesError,
 	UnmergedBranchError,
 	ValidationError,
@@ -233,10 +233,10 @@ describe('worktree.remove() - safety checks', () => {
 });
 
 describe('worktree.setup()', () => {
-	test('throws ValidationError when not in git repository', async () => {
+	test('throws GitError when not in git repository', async () => {
 		process.chdir(testDir);
-		await expect(worktree.setup()).rejects.toThrow(ValidationError);
-		await expect(worktree.setup()).rejects.toThrow('Not in a git repository root');
+		await expect(worktree.setup()).rejects.toThrow(GitError);
+		await expect(worktree.setup()).rejects.toThrow('Could not determine git directory');
 	});
 
 	test('throws ValidationError when already in worktree directory', async () => {

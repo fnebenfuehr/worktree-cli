@@ -281,14 +281,14 @@ describe('MCP worktreeRemove - safety checks', () => {
 });
 
 describe('MCP worktreeSetup', () => {
-	test('returns validation_error when not in git repo root', async () => {
+	test('returns git_error when not in git repo root', async () => {
 		process.chdir(testDir);
 		const result = await worktreeSetup();
 
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.type).toBe('validation_error');
-			expect(result.error).toContain('Not in a git repository root');
+			expect(result.type).toBe('git_error');
+			expect(result.error).toContain('Could not determine git directory');
 		}
 	});
 

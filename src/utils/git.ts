@@ -169,22 +169,29 @@ export async function removeWorktree(
 	if (error) throw error;
 }
 
-export async function isGitRepository(cwd?: string): Promise<boolean> {
-	const { error } = await execGit(['rev-parse', '--git-dir'], cwd);
-	return error === null;
-}
-
 export async function isWorktree(cwd?: string): Promise<boolean> {
-	const gitPath = cwd ? `${cwd}/.git` : '.git';
+	const gitDirResult = await execGit(['rev-parse', '--git-dir'], cwd);
+	const commonDirResult = await execGit(['rev-parse', '--git-common-dir'], cwd);
 
-	const { error, data: gitStat } = await tryCatch(async () => {
-		const { stat } = await import('node:fs/promises');
-		return stat(gitPath);
-	});
+	if (gitDirResult.error) {
+		throw new GitError(
+			'Could not determine git directory. Are you in a git repository?',
+			'git rev-parse --git-dir',
+			{ cause: gitDirResult.error }
+		);
+	}
 
-	if (error || !gitStat) return false;
+	if (commonDirResult.error) {
+		throw new GitError(
+			'Could not determine common git directory',
+			'git rev-parse --git-common-dir',
+			{ cause: commonDirResult.error }
+		);
+	}
 
-	return gitStat.isFile();
+	// In worktrees: --git-dir points to .git/worktrees/name, --git-common-dir points to .git
+	// In main repo: both point to the same location (.git)
+	return gitDirResult.data.stdout !== commonDirResult.data.stdout;
 }
 
 export async function isBranchMerged(
