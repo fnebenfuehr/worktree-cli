@@ -44,3 +44,33 @@ export class UserCancelledError extends WorktreeError {
 		this.name = 'UserCancelledError';
 	}
 }
+
+export class UncommittedChangesError extends GitError {
+	constructor(identifier: string) {
+		super(
+			`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
+			'git status --porcelain --untracked-files=no'
+		);
+		this.name = 'UncommittedChangesError';
+	}
+}
+
+export class UnmergedBranchError extends GitError {
+	constructor(branch: string, targetBranch: string) {
+		super(
+			`Branch '${branch}' is not merged to '${targetBranch}'. Removing it will make those commits harder to recover. Use --force to override.`,
+			'git branch --merged'
+		);
+		this.name = 'UnmergedBranchError';
+	}
+}
+
+export class MergeStatusUnknownError extends GitError {
+	constructor(branch: string, targetBranch: string) {
+		super(
+			`Cannot verify if branch '${branch}' is merged to '${targetBranch}'. Use --force to override.`,
+			'git branch --merged'
+		);
+		this.name = 'MergeStatusUnknownError';
+	}
+}

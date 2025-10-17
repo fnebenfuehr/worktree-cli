@@ -1,25 +1,37 @@
 import * as worktree from '@/core/worktree';
-import { FileSystemError, GitError, ValidationError } from '@/utils/errors';
+import {
+	FileSystemError,
+	GitError,
+	MergeStatusUnknownError,
+	UncommittedChangesError,
+	UnmergedBranchError,
+	ValidationError,
+} from '@/utils/errors';
 import type { ToolResult } from './types';
 
 function classifyError(error: unknown): Extract<ToolResult<never>, { success: false }> {
-	if (error instanceof GitError) {
-		const isUncommittedChanges = error.message.includes('uncommitted changes');
-		const isUnmergedBranch = error.message.includes('not merged');
-		const cannotVerifyMerge = error.message.includes('Cannot verify');
-
-		let suggestion = 'Check git configuration and repository state';
-		if (isUncommittedChanges || isUnmergedBranch || cannotVerifyMerge) {
-			suggestion =
-				'Use force: true to override safety checks, but only if explicitly requested by user';
-		}
-
+	if (
+		error instanceof UncommittedChangesError ||
+		error instanceof UnmergedBranchError ||
+		error instanceof MergeStatusUnknownError
+	) {
 		return {
 			success: false,
 			error: error.message,
 			type: 'git_error',
 			recoverable: true,
-			suggestion,
+			suggestion:
+				'Use force: true to override safety checks, but only if explicitly requested by user',
+		};
+	}
+
+	if (error instanceof GitError) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'git_error',
+			recoverable: true,
+			suggestion: 'Check git configuration and repository state',
 		};
 	}
 

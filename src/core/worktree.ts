@@ -1,6 +1,13 @@
 import { dirname, join } from 'node:path';
 import { $ } from 'bun';
-import { FileSystemError, GitError, ValidationError } from '@/utils/errors';
+import {
+	FileSystemError,
+	GitError,
+	MergeStatusUnknownError,
+	UncommittedChangesError,
+	UnmergedBranchError,
+	ValidationError,
+} from '@/utils/errors';
 import { branchToDirName, createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
 	branchExists,
@@ -163,10 +170,7 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		}
 
 		if (statusResult.data.stdout.trim()) {
-			throw new GitError(
-				`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
-				'git status --porcelain --untracked-files=no'
-			);
+			throw new UncommittedChangesError(identifier);
 		}
 
 		// Check if branch is merged
@@ -174,17 +178,11 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		const merged = await isBranchMerged(identifier, defaultBranch, gitRoot);
 
 		if (merged === null) {
-			throw new GitError(
-				`Cannot verify if branch '${identifier}' is merged to '${defaultBranch}'. Use --force to override.`,
-				'git branch --merged'
-			);
+			throw new MergeStatusUnknownError(identifier, defaultBranch);
 		}
 
 		if (!merged) {
-			throw new GitError(
-				`Branch '${identifier}' is not merged to '${defaultBranch}'. Removing it will make those commits harder to recover. Use --force to override.`,
-				'git branch --merged'
-			);
+			throw new UnmergedBranchError(identifier, defaultBranch);
 		}
 	}
 
