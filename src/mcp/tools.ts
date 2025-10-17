@@ -2,47 +2,51 @@ import * as worktree from '@/core/worktree';
 import { FileSystemError, GitError, ValidationError } from '@/utils/errors';
 import type { ToolResult } from './types';
 
+function classifyError(error: unknown): Extract<ToolResult<never>, { success: false }> {
+	if (error instanceof GitError) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'git_error',
+			recoverable: true,
+			suggestion: 'Check git configuration and repository state',
+		};
+	}
+
+	if (error instanceof ValidationError) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'validation_error',
+			recoverable: true,
+			suggestion: 'Verify input parameters and try again',
+		};
+	}
+
+	if (error instanceof FileSystemError) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'filesystem_error',
+			recoverable: true,
+			suggestion: 'Check file permissions and paths',
+		};
+	}
+
+	return {
+		success: false,
+		error: error instanceof Error ? error.message : String(error),
+		type: 'unknown_error',
+		recoverable: false,
+	};
+}
+
 export async function handleToolError<T>(fn: () => Promise<T>): Promise<ToolResult<T>> {
 	try {
 		const data = await fn();
 		return { success: true, data };
 	} catch (error) {
-		if (error instanceof GitError) {
-			return {
-				success: false,
-				error: error.message,
-				type: 'git_error',
-				recoverable: true,
-				suggestion: 'Check git configuration and repository state',
-			};
-		}
-
-		if (error instanceof ValidationError) {
-			return {
-				success: false,
-				error: error.message,
-				type: 'validation_error',
-				recoverable: true,
-				suggestion: 'Verify input parameters and try again',
-			};
-		}
-
-		if (error instanceof FileSystemError) {
-			return {
-				success: false,
-				error: error.message,
-				type: 'filesystem_error',
-				recoverable: true,
-				suggestion: 'Check file permissions and paths',
-			};
-		}
-
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : String(error),
-			type: 'unknown_error',
-			recoverable: false,
-		};
+		return classifyError(error);
 	}
 }
 

@@ -1,6 +1,19 @@
 import { startMCPServer } from '@/mcp/server';
 import { intro, log, outro } from '@/utils/prompts';
 
+const EXPECTED_TOOL_COUNT = 6;
+
+interface JsonRpcResponse {
+	jsonrpc: string;
+	id: number;
+	result?: {
+		tools?: unknown[];
+	};
+	error?: {
+		message: string;
+	};
+}
+
 export async function mcpStartCommand(): Promise<number> {
 	await startMCPServer();
 	return 0;
@@ -60,7 +73,7 @@ export async function mcpTestCommand(): Promise<number> {
 			params: {},
 		};
 
-		spawn.stdin.write(JSON.stringify(testRequest) + '\n');
+		spawn.stdin.write(`${JSON.stringify(testRequest)}\n`);
 		spawn.stdin.end();
 
 		log.step('Sending tools/list request');
@@ -68,13 +81,13 @@ export async function mcpTestCommand(): Promise<number> {
 		const output = await new Response(spawn.stdout).text();
 
 		const lines = output.trim().split('\n');
-		let response: any = null;
+		let response: JsonRpcResponse | null = null;
 
 		for (const line of lines) {
 			try {
 				const parsed = JSON.parse(line);
 				if (parsed.id === 1) {
-					response = parsed;
+					response = parsed as JsonRpcResponse;
 					break;
 				}
 			} catch {}
@@ -96,8 +109,8 @@ export async function mcpTestCommand(): Promise<number> {
 
 		const toolCount = response.result?.tools?.length || 0;
 
-		if (toolCount !== 6) {
-			log.error(`Expected 6 tools, got ${toolCount}`);
+		if (toolCount !== EXPECTED_TOOL_COUNT) {
+			log.error(`Expected ${EXPECTED_TOOL_COUNT} tools, got ${toolCount}`);
 			spawn.kill();
 			outro('Test failed');
 			return 1;

@@ -156,6 +156,22 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 	};
 }
 
+async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]): Promise<void> {
+	for (const item of itemsToRollback) {
+		try {
+			await move(`${tempDir}/${item}`, item);
+		} catch {
+			// Continue rollback
+		}
+	}
+
+	try {
+		await $`rm -rf ${tempDir}`.quiet();
+	} catch {
+		// Ignore cleanup errors
+	}
+}
+
 export async function setup(targetDir?: string): Promise<SetupResult> {
 	if (!(await exists('.git'))) {
 		throw new ValidationError(
@@ -226,19 +242,7 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			worktreePath: join(process.cwd(), targetDirName),
 		};
 	} catch (error) {
-		for (const item of itemsToRollback) {
-			try {
-				await move(`${tempDir}/${item}`, item);
-			} catch {
-				// Continue rollback
-			}
-		}
-
-		try {
-			await $`rm -rf ${tempDir}`.quiet();
-		} catch {
-			// Ignore cleanup errors
-		}
+		await rollbackSetup(tempDir, itemsToRollback);
 
 		if (
 			error instanceof ValidationError ||
