@@ -7,6 +7,7 @@ import {
 	UnmergedBranchError,
 	ValidationError,
 } from '@/utils/errors';
+import { tryCatch } from '@/utils/try-catch';
 import type { ToolResult } from './types';
 
 function classifyError(error: unknown): Extract<ToolResult<never>, { success: false }> {
@@ -64,12 +65,9 @@ function classifyError(error: unknown): Extract<ToolResult<never>, { success: fa
 }
 
 export async function handleToolError<T>(fn: () => Promise<T>): Promise<ToolResult<T>> {
-	try {
-		const data = await fn();
-		return { success: true, data };
-	} catch (error) {
-		return classifyError(error);
-	}
+	const { data, error } = await tryCatch(fn());
+	if (error) return classifyError(error);
+	return { success: true, data };
 }
 
 export async function worktreeStatus(): Promise<ToolResult<worktree.StatusResult>> {
