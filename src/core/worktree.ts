@@ -14,6 +14,7 @@ import {
 	addWorktree as gitAddWorktree,
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
+	isBranchMerged,
 } from '@/utils/git';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
@@ -147,16 +148,42 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		);
 	}
 
-	// Check for uncommitted changes unless force is true
 	if (!force) {
+		// Check for uncommitted changes
 		const statusResult = await execGit(
 			['status', '--porcelain', '--untracked-files=no'],
 			worktreeDir
 		);
-		if (statusResult.error === null && statusResult.data.stdout.trim()) {
+
+		if (statusResult.error) {
+			throw new GitError(
+				`Could not check status of worktree '${identifier}': ${statusResult.error.message}`,
+				'git status --porcelain --untracked-files=no'
+			);
+		}
+
+		if (statusResult.data.stdout.trim()) {
 			throw new GitError(
 				`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
 				'git status --porcelain --untracked-files=no'
+			);
+		}
+
+		// Check if branch is merged
+		const defaultBranch = (await getDefaultBranch(gitRoot)) || 'main';
+		const merged = await isBranchMerged(identifier, defaultBranch, gitRoot);
+
+		if (merged === null) {
+			throw new GitError(
+				`Cannot verify if branch '${identifier}' is merged to '${defaultBranch}'. Use --force to override.`,
+				'git branch --merged'
+			);
+		}
+
+		if (!merged) {
+			throw new GitError(
+				`Branch '${identifier}' is not merged to '${defaultBranch}'. Removing it will make those commits harder to recover. Use --force to override.`,
+				'git branch --merged'
 			);
 		}
 	}

@@ -178,15 +178,13 @@ export async function isBranchMerged(
 	branch: string,
 	targetBranch: string,
 	cwd?: string
-): Promise<boolean> {
-	// git branch --merged <targetBranch> lists all branches merged into targetBranch
+): Promise<boolean | null> {
 	const result = await execGit(['branch', '--merged', targetBranch], cwd);
 
 	if (result.error) {
-		return false;
+		return null;
 	}
 
-	// Parse output - format is "  branch-name" or "* current-branch"
 	const mergedBranches = result.data.stdout
 		.split('\n')
 		.map((line: string) => line.trim().replace(/^\*\s+/, ''))

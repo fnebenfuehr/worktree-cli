@@ -1,8 +1,8 @@
 import { loadAndValidateConfig } from '@/config/loader';
 import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
-import { ValidationError } from '@/utils/errors';
-import { findGitRootOrThrow, getDefaultBranch, isBranchMerged } from '@/utils/git';
+import { GitError, ValidationError } from '@/utils/errors';
+import { findGitRootOrThrow } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -61,49 +61,56 @@ export async function removeCommand(
 
 	const gitRoot = await findGitRootOrThrow();
 
-	// Check if branch is merged (unless force is true)
-	if (!options?.force) {
-		const defaultBranch = (await getDefaultBranch(gitRoot)) || 'main';
-		const merged = await isBranchMerged(branch, defaultBranch, gitRoot);
+	// Verify worktree exists before doing expensive checks
+	const worktrees = await worktree.list();
+	const targetWorktree = worktrees.find((wt) => wt.branch === branch);
 
-		if (!merged) {
-			if (isInteractive()) {
-				// Interactive: warn and prompt for confirmation
-				log.warn(`Branch '${branch}' is not merged to '${defaultBranch}'`);
-				const proceedAnyway = await promptConfirm(
-					'This branch has not been merged. Proceed with removal?',
-					false
-				);
-
-				if (!proceedAnyway) {
-					cancel('Removal cancelled');
-					return 0;
-				}
-			} else {
-				// Non-interactive: fail with error
-				throw new ValidationError(
-					`Branch '${branch}' is not merged to '${defaultBranch}'. Use --force to override.`
-				);
-			}
-		}
+	if (!targetWorktree) {
+		throw new ValidationError(
+			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
+		);
 	}
+
+	const worktreePath = targetWorktree.path;
 
 	const config = await loadAndValidateConfig(gitRoot);
 
 	// Capture current directory before removal (worktree deletion may invalidate cwd)
 	const { data: currentDir } = tryCatch(() => process.cwd());
 
-	const s = spinner();
-	s.start('Removing worktree');
-
-	const result = await worktree.remove(branch, options?.force || false);
-
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
-			cwd: result.path,
+			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
 		});
+	}
+
+	const s = spinner();
+	s.start('Removing worktree');
+
+	const { error: removeError } = await tryCatch(() =>
+		worktree.remove(branch, options?.force || false)
+	);
+
+	if (removeError) {
+		s.stop();
+
+		// In interactive mode, catch GitErrors and prompt user to override with force
+		if (removeError instanceof GitError && isInteractive() && !options?.force) {
+			log.warn(removeError.message);
+			const proceedWithForce = await promptConfirm('Proceed with forced removal?', false);
+
+			if (!proceedWithForce) {
+				cancel('Removal cancelled');
+				return 0;
+			}
+
+			s.start('Removing worktree (forced)');
+			await worktree.remove(branch, true);
+		} else {
+			throw removeError;
+		}
 	}
 
 	s.stop('Worktree removed successfully');

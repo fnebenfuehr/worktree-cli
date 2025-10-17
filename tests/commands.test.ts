@@ -91,12 +91,12 @@ describe('Command Error Handling', () => {
 			await expect(removeCommand('')).rejects.toThrow('Branch name required');
 		});
 
-		test('throws FileSystemError when worktree does not exist', async () => {
+		test('throws ValidationError when worktree does not exist', async () => {
 			await expect(removeCommand('nonexistent-branch-12345', { force: true })).rejects.toThrow(
-				FileSystemError
+				ValidationError
 			);
 			await expect(removeCommand('nonexistent-branch-12345', { force: true })).rejects.toThrow(
-				'No such worktree directory'
+				'No worktree found for branch'
 			);
 		});
 	});

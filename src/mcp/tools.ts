@@ -4,12 +4,22 @@ import type { ToolResult } from './types';
 
 function classifyError(error: unknown): Extract<ToolResult<never>, { success: false }> {
 	if (error instanceof GitError) {
+		const isUncommittedChanges = error.message.includes('uncommitted changes');
+		const isUnmergedBranch = error.message.includes('not merged');
+		const cannotVerifyMerge = error.message.includes('Cannot verify');
+
+		let suggestion = 'Check git configuration and repository state';
+		if (isUncommittedChanges || isUnmergedBranch || cannotVerifyMerge) {
+			suggestion =
+				'Use force: true to override safety checks, but only if explicitly requested by user';
+		}
+
 		return {
 			success: false,
 			error: error.message,
 			type: 'git_error',
 			recoverable: true,
-			suggestion: 'Check git configuration and repository state',
+			suggestion,
 		};
 	}
 
