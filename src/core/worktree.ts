@@ -15,6 +15,7 @@ import {
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
 } from '@/utils/git';
+import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
@@ -248,7 +249,11 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			worktreePath: join(process.cwd(), targetDirName),
 		};
 	} catch (error) {
-		await rollbackSetup(tempDir, itemsToRollback);
+		const { error: rollbackError } = await tryCatch(rollbackSetup(tempDir, itemsToRollback));
+		if (rollbackError) {
+			// Rollback failed but preserve original error
+			log.error(`Rollback also failed: ${rollbackError.message}`);
+		}
 
 		if (
 			error instanceof ValidationError ||
