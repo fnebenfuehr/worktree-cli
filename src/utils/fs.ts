@@ -1,15 +1,9 @@
-import { cp, realpath as fsRealpath, mkdir, readdir, rename, stat } from 'node:fs/promises';
+import { cp, mkdir, readdir, rename, stat } from 'node:fs/promises';
 import { tryCatch } from '@/utils/try-catch';
 
 export async function exists(path: string): Promise<boolean> {
 	const { error } = await tryCatch(stat(path));
 	return error === null;
-}
-
-export async function realpath(path: string): Promise<string> {
-	const { error, data } = await tryCatch(fsRealpath(path));
-	if (error) return path;
-	return data;
 }
 
 export async function createDir(path: string): Promise<void> {
@@ -25,7 +19,6 @@ export async function copyFile(source: string, destination: string): Promise<voi
 }
 
 export async function getAllItems(dir: string): Promise<string[]> {
-	const { error, data: entries } = await tryCatch(readdir(dir, { withFileTypes: true }));
-	if (error) return [];
+	const entries = await readdir(dir, { withFileTypes: true });
 	return entries.map((entry) => entry.name);
 }

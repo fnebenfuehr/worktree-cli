@@ -3,7 +3,6 @@ import { $ } from 'bun';
 import {
 	FileSystemError,
 	GitError,
-	MergeStatusUnknownError,
 	UncommittedChangesError,
 	UnmergedBranchError,
 	ValidationError,
@@ -12,7 +11,6 @@ import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
 	branchExists,
 	createBranch,
-	execGit,
 	type WorktreeInfo as GitWorktreeInfo,
 	getCurrentBranch,
 	getDefaultBranch,
@@ -20,6 +18,7 @@ import {
 	addWorktree as gitAddWorktree,
 	getWorktrees as gitGetWorktrees,
 	removeWorktree as gitRemoveWorktree,
+	hasUncommittedChanges,
 	isBranchMerged,
 	isWorktree,
 } from '@/utils/git';
@@ -150,26 +149,13 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 
 	if (!force) {
 		// Check for uncommitted changes (includes both tracked changes and untracked files)
-		const statusResult = await execGit(['status', '--porcelain'], worktreeDir);
-
-		if (statusResult.error) {
-			throw new GitError(
-				`Could not check status of worktree '${identifier}': ${statusResult.error.message}`,
-				'git status --porcelain'
-			);
-		}
-
-		if (statusResult.data.stdout.trim()) {
+		if (await hasUncommittedChanges(worktreeDir, { includeUntracked: true })) {
 			throw new UncommittedChangesError(identifier);
 		}
 
 		// Check if branch is merged
 		const defaultBranch = await getDefaultBranch(gitRoot);
 		const merged = await isBranchMerged(identifier, defaultBranch, gitRoot);
-
-		if (merged === null) {
-			throw new MergeStatusUnknownError(identifier, defaultBranch);
-		}
 
 		if (!merged) {
 			throw new UnmergedBranchError(identifier, defaultBranch);
@@ -223,15 +209,8 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 
 	const currentBranch = await getCurrentBranch();
 
-	const statusResult = await execGit(['status', '--porcelain', '--untracked-files=no']);
-	if (statusResult.error) {
-		throw statusResult.error;
-	}
-	if (statusResult.data.stdout.trim()) {
-		throw new GitError(
-			'Uncommitted changes detected. Commit or stash changes before setup.',
-			'git status --porcelain --untracked-files=no'
-		);
+	if (await hasUncommittedChanges()) {
+		throw new UncommittedChangesError(currentBranch);
 	}
 
 	const tempDir = `.tmp-worktree-setup-${process.pid}`;

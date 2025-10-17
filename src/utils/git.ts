@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { $ } from 'bun';
 import { GitError, ValidationError } from '@/utils/errors';
 import { exists } from '@/utils/fs';
-import { type Result, tryCatch } from '@/utils/try-catch';
+import { tryCatch } from '@/utils/try-catch';
 
 export interface GitCommandResult {
 	stdout: string;
@@ -11,10 +11,7 @@ export interface GitCommandResult {
 	exitCode: number;
 }
 
-export async function execGit(
-	args: string[],
-	cwd?: string
-): Promise<Result<GitCommandResult, GitError>> {
+export async function execGit(args: string[], cwd?: string): Promise<GitCommandResult> {
 	const { error, data } = await tryCatch(async () => {
 		const proc = cwd ? await $`git ${args}`.cwd(cwd).quiet() : await $`git ${args}`.quiet();
 		return {
@@ -25,25 +22,18 @@ export async function execGit(
 	});
 
 	if (error) {
-		return {
-			error: new GitError(error.message, `git ${args.join(' ')}`, { cause: error }),
-			data: null,
-		};
+		throw new GitError(error.message, `git ${args.join(' ')}`, { cause: error });
 	}
 
 	if (data.exitCode !== 0) {
-		return {
-			error: new GitError(data.stderr || 'Git command failed', `git ${args.join(' ')}`),
-			data: null,
-		};
+		throw new GitError(data.stderr || 'Git command failed', `git ${args.join(' ')}`);
 	}
 
-	return { error: null, data };
+	return data;
 }
 
 export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
-	const { error, data: entries } = await tryCatch(readdir(dir, { withFileTypes: true }));
-	if (error) return [];
+	const entries = await readdir(dir, { withFileTypes: true });
 
 	const repos: string[] = [];
 	for (const entry of entries) {
@@ -59,7 +49,7 @@ export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
 }
 
 export async function getGitRoot(cwd?: string): Promise<string> {
-	const { error, data } = await execGit(['rev-parse', '--show-toplevel'], cwd);
+	const { error, data } = await tryCatch(execGit(['rev-parse', '--show-toplevel'], cwd));
 
 	if (error || !data) {
 		// Check if we can find a git repo in subdirectories
@@ -79,20 +69,18 @@ export async function getGitRoot(cwd?: string): Promise<string> {
 }
 
 export async function getCurrentBranch(cwd?: string): Promise<string> {
-	const { error, data } = await execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
-
+	const { error, data } = await tryCatch(execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd));
 	if (error) {
 		throw new GitError('Could not determine current branch', 'git rev-parse --abbrev-ref HEAD', {
 			cause: error,
 		});
 	}
-
 	return data.stdout;
 }
 
 export async function getDefaultBranch(cwd?: string): Promise<string> {
 	// Try 1: Get default branch from remote
-	const { error, data } = await execGit(['remote', 'show', 'origin'], cwd);
+	const { error, data } = await tryCatch(execGit(['remote', 'show', 'origin'], cwd));
 
 	if (!error) {
 		const match = data.stdout.match(/HEAD branch:\s*(.+)/);
@@ -112,9 +100,8 @@ export async function getDefaultBranch(cwd?: string): Promise<string> {
 	}
 
 	// Try 4: Use current branch as fallback
-	const { error: currentError, data: currentData } = await execGit(
-		['rev-parse', '--abbrev-ref', 'HEAD'],
-		cwd
+	const { error: currentError, data: currentData } = await tryCatch(
+		execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
 	);
 
 	if (!currentError && currentData.stdout) {
@@ -129,7 +116,7 @@ export async function getDefaultBranch(cwd?: string): Promise<string> {
 }
 
 export async function branchExists(branch: string, cwd?: string): Promise<boolean> {
-	const { error } = await execGit(['show-ref', '--quiet', `refs/heads/${branch}`], cwd);
+	const { error } = await tryCatch(execGit(['show-ref', '--quiet', `refs/heads/${branch}`], cwd));
 	return error === null;
 }
 
@@ -138,14 +125,24 @@ export async function createBranch(
 	baseBranch: string,
 	cwd?: string
 ): Promise<void> {
-	const fetchResult = await execGit(['fetch', 'origin', baseBranch], cwd);
-	if (fetchResult.error) {
-		throw fetchResult.error;
+	const { error: fetchError } = await tryCatch(execGit(['fetch', 'origin', baseBranch], cwd));
+	if (fetchError) {
+		throw new GitError(
+			`Failed to fetch branch '${baseBranch}' from origin`,
+			`git fetch origin ${baseBranch}`,
+			{ cause: fetchError }
+		);
 	}
 
-	const branchResult = await execGit(['branch', branch, `origin/${baseBranch}`], cwd);
-	if (branchResult.error) {
-		throw branchResult.error;
+	const { error: branchError } = await tryCatch(
+		execGit(['branch', branch, `origin/${baseBranch}`], cwd)
+	);
+	if (branchError) {
+		throw new GitError(
+			`Failed to create branch '${branch}' from 'origin/${baseBranch}'`,
+			`git branch ${branch} origin/${baseBranch}`,
+			{ cause: branchError }
+		);
 	}
 }
 
@@ -156,9 +153,11 @@ export interface WorktreeInfo {
 }
 
 export async function listWorktrees(cwd?: string): Promise<string> {
-	const result = await execGit(['worktree', 'list'], cwd);
-	if (result.error) throw result.error;
-	return result.data.stdout;
+	const { error, data } = await tryCatch(execGit(['worktree', 'list'], cwd));
+	if (error) {
+		throw new GitError('Failed to list worktrees', 'git worktree list', { cause: error });
+	}
+	return data.stdout;
 }
 
 // Example input:
@@ -195,8 +194,14 @@ export async function getWorktrees(cwd?: string): Promise<WorktreeInfo[]> {
 }
 
 export async function addWorktree(path: string, branch: string, cwd?: string): Promise<void> {
-	const { error } = await execGit(['worktree', 'add', path, branch], cwd);
-	if (error) throw error;
+	const { error } = await tryCatch(execGit(['worktree', 'add', path, branch], cwd));
+	if (error) {
+		throw new GitError(
+			`Failed to add worktree at '${path}' for branch '${branch}'`,
+			`git worktree add ${path} ${branch}`,
+			{ cause: error }
+		);
+	}
 }
 
 export async function removeWorktree(
@@ -210,50 +215,80 @@ export async function removeWorktree(
 	}
 	args.push(path);
 
-	const { error } = await execGit(args, cwd);
-	if (error) throw error;
+	const { error } = await tryCatch(execGit(args, cwd));
+	if (error) {
+		throw new GitError(
+			`Failed to remove worktree at '${path}'`,
+			`git worktree remove ${args.slice(2).join(' ')}`,
+			{ cause: error }
+		);
+	}
 }
 
 export async function isWorktree(cwd?: string): Promise<boolean> {
-	const gitDirResult = await execGit(['rev-parse', '--git-dir'], cwd);
-	const commonDirResult = await execGit(['rev-parse', '--git-common-dir'], cwd);
-
-	if (gitDirResult.error) {
+	const { error: gitDirError, data: gitDirData } = await tryCatch(
+		execGit(['rev-parse', '--git-dir'], cwd)
+	);
+	if (gitDirError) {
 		throw new GitError(
 			'Could not determine git directory. Are you in a git repository?',
 			'git rev-parse --git-dir',
-			{ cause: gitDirResult.error }
+			{ cause: gitDirError }
 		);
 	}
 
-	if (commonDirResult.error) {
+	const { error: commonDirError, data: commonDirData } = await tryCatch(
+		execGit(['rev-parse', '--git-common-dir'], cwd)
+	);
+	if (commonDirError) {
 		throw new GitError(
 			'Could not determine common git directory',
 			'git rev-parse --git-common-dir',
-			{ cause: commonDirResult.error }
+			{ cause: commonDirError }
 		);
 	}
 
 	// In worktrees: --git-dir points to .git/worktrees/name, --git-common-dir points to .git
 	// In main repo: both point to the same location (.git)
-	return gitDirResult.data.stdout !== commonDirResult.data.stdout;
+	return gitDirData.stdout !== commonDirData.stdout;
 }
 
 export async function isBranchMerged(
 	branch: string,
 	targetBranch: string,
 	cwd?: string
-): Promise<boolean | null> {
-	const result = await execGit(['branch', '--merged', targetBranch], cwd);
+): Promise<boolean> {
+	const { error, data } = await tryCatch(execGit(['branch', '--merged', targetBranch], cwd));
 
-	if (result.error) {
-		return null;
+	if (error) {
+		throw new GitError(
+			`Failed to check if branch '${branch}' is merged into '${targetBranch}'`,
+			`git branch --merged ${targetBranch}`,
+			{ cause: error }
+		);
 	}
 
-	const mergedBranches = result.data.stdout
+	const mergedBranches = data.stdout
 		.split('\n')
 		.map((line: string) => line.trim().replace(/^\*\s+/, ''))
 		.filter((line: string) => line.length > 0);
 
 	return mergedBranches.includes(branch);
+}
+
+export async function hasUncommittedChanges(
+	cwd?: string,
+	options?: { includeUntracked?: boolean }
+): Promise<boolean> {
+	const args = ['status', '--porcelain'];
+	if (!options?.includeUntracked) {
+		args.push('--untracked-files=no');
+	}
+
+	const { error, data } = await tryCatch(execGit(args, cwd));
+	if (error) {
+		throw new GitError('Could not check git status', `git ${args.join(' ')}`, { cause: error });
+	}
+
+	return data.stdout.trim().length > 0;
 }
