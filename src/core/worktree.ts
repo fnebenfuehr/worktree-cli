@@ -147,6 +147,17 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		);
 	}
 
+	// Check for uncommitted changes unless force is true
+	if (!force) {
+		const statusResult = await execGit(['status', '--porcelain', '--untracked-files=no'], worktreeDir);
+		if (statusResult.success && statusResult.stdout.trim()) {
+			throw new GitError(
+				`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
+				'git status --porcelain --untracked-files=no'
+			);
+		}
+	}
+
 	await gitRemoveWorktree(worktreeDir, gitRoot, { force });
 
 	return {

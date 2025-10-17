@@ -19,7 +19,7 @@ Git worktrees allow you to have multiple working directories for a single reposi
 - **Smart Defaults**: Automatically detects default branches and handles edge cases
 - **Lifecycle Hooks**: Automate setup/teardown with configurable post-create, pre-remove, and post-remove hooks
 - **File Management**: Copy files from main worktree (env files, configs, etc.)
-- **Safety First**: Prevents accidental removal of active worktrees
+- **Safety First**: Prevents data loss with uncommitted change detection and unmerged branch warnings
 - **AI Integration**: MCP server for Claude Code, Cody, Cursor - let AI manage worktrees for you
 
 ## Installation
@@ -234,15 +234,24 @@ Remove an existing git worktree.
 **Options:**
 - `-i, --interactive` - Interactive mode with confirmation prompt
 - `--no-hooks` - Skip running lifecycle hooks
+- `-f, --force` - Force removal, bypass safety checks
 
 **Safety:**
 
 - Cannot remove main worktree (first worktree in list)
+- Prevents removal if worktree has uncommitted changes (unless `--force`)
+- Prevents removal if branch is not merged to default branch (unless `--force`)
+  - Interactive mode: warns and prompts for confirmation
+  - Non-interactive mode: fails with error
 
-**Example:**
+**Examples:**
 
 ```bash
+# Remove a worktree
 worktree remove feature/user-auth
+
+# Force remove even with uncommitted changes or unmerged branch
+worktree remove feature/user-auth --force
 ```
 
 ### `worktree switch [branch]`

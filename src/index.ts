@@ -90,6 +90,7 @@ program
 // Branch management commands
 interface CommandOptions {
 	hooks?: boolean;
+	force?: boolean;
 }
 
 program
@@ -110,12 +111,14 @@ program
 	.command('remove [branch]')
 	.description('Remove an existing git worktree')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('-f, --force', 'Force removal even with uncommitted changes')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			removeCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				force: options.force,
 			})
 		)();
 	});

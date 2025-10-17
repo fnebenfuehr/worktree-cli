@@ -173,3 +173,20 @@ export async function isGitRepository(cwd?: string): Promise<boolean> {
 	const { error } = await execGit(['rev-parse', '--git-dir'], cwd);
 	return error === null;
 }
+
+export async function isBranchMerged(branch: string, targetBranch: string, cwd?: string): Promise<boolean> {
+	// git branch --merged <targetBranch> lists all branches merged into targetBranch
+	const result = await execGit(['branch', '--merged', targetBranch], cwd);
+
+	if (!result.success) {
+		return false;
+	}
+
+	// Parse output - format is "  branch-name" or "* current-branch"
+	const mergedBranches = result.stdout
+		.split('\n')
+		.map(line => line.trim().replace(/^\*\s+/, ''))
+		.filter(line => line.length > 0);
+
+	return mergedBranches.includes(branch);
+}

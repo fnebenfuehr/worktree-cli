@@ -2,11 +2,12 @@ import { loadAndValidateConfig } from '@/config/loader';
 import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
 import { ValidationError } from '@/utils/errors';
-import { findGitRootOrThrow } from '@/utils/git';
+import { findGitRootOrThrow, getDefaultBranch, isBranchMerged } from '@/utils/git';
 import {
 	cancel,
 	intro,
 	isInteractive,
+	log,
 	note,
 	outro,
 	promptConfirm,
@@ -16,7 +17,7 @@ import {
 
 export async function removeCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean }
+	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -58,6 +59,34 @@ export async function removeCommand(
 	}
 
 	const gitRoot = await findGitRootOrThrow();
+
+	// Check if branch is merged (unless force is true)
+	if (!options?.force) {
+		const defaultBranch = await getDefaultBranch(gitRoot);
+		const merged = await isBranchMerged(branch, defaultBranch, gitRoot);
+
+		if (!merged) {
+			if (isInteractive()) {
+				// Interactive: warn and prompt for confirmation
+				log.warn(`Branch '${branch}' is not merged to '${defaultBranch}'`);
+				const proceedAnyway = await promptConfirm(
+					'This branch has not been merged. Proceed with removal?',
+					false
+				);
+
+				if (!proceedAnyway) {
+					cancel('Removal cancelled');
+					return 0;
+				}
+			} else {
+				// Non-interactive: fail with error
+				throw new ValidationError(
+					`Branch '${branch}' is not merged to '${defaultBranch}'. Use --force to override.`
+				);
+			}
+		}
+	}
+
 	const config = await loadAndValidateConfig(gitRoot);
 
 	// Capture current directory before removal (worktree deletion may invalidate cwd)
@@ -71,7 +100,7 @@ export async function removeCommand(
 	const s = spinner();
 	s.start('Removing worktree');
 
-	const result = await worktree.remove(branch);
+	const result = await worktree.remove(branch, options?.force || false);
 
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
