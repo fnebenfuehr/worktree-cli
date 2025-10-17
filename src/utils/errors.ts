@@ -13,10 +13,14 @@ export class WorktreeError extends Error {
 export class GitError extends WorktreeError {
 	constructor(
 		message: string,
-		public readonly command: string
+		public readonly command: string,
+		options?: ErrorOptions
 	) {
 		super(message, 'GIT_ERROR', 1);
 		this.name = 'GitError';
+		if (options?.cause) {
+			this.cause = options.cause;
+		}
 	}
 }
 

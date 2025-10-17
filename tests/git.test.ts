@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { GitError } from '@/utils/errors';
 import * as git from '@/utils/git';
 

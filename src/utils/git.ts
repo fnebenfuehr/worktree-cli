@@ -24,7 +24,7 @@ export async function execGit(
 
 	if (error) {
 		return {
-			error: new GitError(error.message, `git ${args.join(' ')}`),
+			error: new GitError(error.message, `git ${args.join(' ')}`, { cause: error }),
 			data: null,
 		};
 	}
@@ -70,7 +70,7 @@ export async function getCurrentBranch(cwd?: string): Promise<string | null> {
 	return data.stdout;
 }
 
-export async function getDefaultBranch(cwd?: string): Promise<string> {
+export async function getDefaultBranch(cwd?: string): Promise<string | undefined> {
 	const { error, data } = await execGit(['remote', 'show', 'origin'], cwd);
 
 	if (!error) {
@@ -80,7 +80,7 @@ export async function getDefaultBranch(cwd?: string): Promise<string> {
 		}
 	}
 
-	return 'main';
+	return undefined;
 }
 
 export async function branchExists(branch: string, cwd?: string): Promise<boolean> {
@@ -154,8 +154,18 @@ export async function addWorktree(path: string, branch: string, cwd?: string): P
 	if (error) throw error;
 }
 
-export async function removeWorktree(path: string, cwd?: string): Promise<void> {
-	const { error } = await execGit(['worktree', 'remove', path], cwd);
+export async function removeWorktree(
+	path: string,
+	cwd?: string,
+	options?: { force?: boolean }
+): Promise<void> {
+	const args = ['worktree', 'remove'];
+	if (options?.force) {
+		args.push('--force');
+	}
+	args.push(path);
+
+	const { error } = await execGit(args, cwd);
 	if (error) throw error;
 }
 

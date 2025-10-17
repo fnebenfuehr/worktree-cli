@@ -60,7 +60,7 @@ export async function status(): Promise<StatusResult> {
 	const isBare = gitDir.endsWith('.git') || gitDir.includes('.bare');
 
 	const worktrees = await gitGetWorktreeList(gitRoot);
-	const defaultBranch = worktrees.length > 0 ? worktrees[0]?.branch : undefined;
+	const defaultBranch = await getDefaultBranch(gitRoot);
 
 	return {
 		enabled: hasWorktrees || isBare,
@@ -96,7 +96,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 		);
 	}
 
-	const base = baseBranch || (await getDefaultBranch(gitRoot));
+	const base = baseBranch || (await getDefaultBranch(gitRoot)) || 'main';
 	const branchAlreadyExists = await branchExists(branch, gitRoot);
 
 	if (!branchAlreadyExists) {
@@ -146,11 +146,7 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 		);
 	}
 
-	if (force) {
-		await gitRemoveWorktree(`${worktreeDir} --force`, gitRoot);
-	} else {
-		await gitRemoveWorktree(worktreeDir, gitRoot);
-	}
+	await gitRemoveWorktree(worktreeDir, gitRoot, { force });
 
 	return {
 		path: worktreeDir,
@@ -158,16 +154,25 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 }
 
 async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]): Promise<void> {
+	const rollbackErrors: Error[] = [];
+
 	for (const item of itemsToRollback) {
 		const { error } = await tryCatch(move(`${tempDir}/${item}`, item));
 		if (error) {
-			// Continue rollback
+			rollbackErrors.push(error);
 		}
 	}
 
-	const { error } = await tryCatch($`rm -rf ${tempDir}`.quiet());
-	if (error) {
-		// Ignore cleanup errors
+	const { error: cleanupError } = await tryCatch($`rm -rf ${tempDir}`.quiet());
+	if (cleanupError) {
+		rollbackErrors.push(cleanupError);
+	}
+
+	if (rollbackErrors.length > 0) {
+		const errorMessages = rollbackErrors.map((e) => e.message).join('; ');
+		throw new FileSystemError(
+			`Setup rollback completed with ${rollbackErrors.length} error(s): ${errorMessages}`
+		);
 	}
 }
 
