@@ -1,5 +1,6 @@
 import { cosmiconfig } from 'cosmiconfig';
 import { log } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 
 export interface WorktreeConfig {
 	post_create?: string[];
@@ -22,15 +23,14 @@ const explorer = cosmiconfig('worktree', {
 });
 
 export async function loadConfig(searchPath: string): Promise<WorktreeConfig | null> {
-	try {
-		const result = await explorer.search(searchPath);
-		return result?.config || null;
-	} catch (error) {
+	const { error, data: result } = await tryCatch(explorer.search(searchPath));
+	if (error) {
 		if (process.env.DEBUG) {
 			console.error('Error loading worktree config:', error);
 		}
 		return null;
 	}
+	return result?.config || null;
 }
 
 function isStringArray(value: unknown): value is string[] {

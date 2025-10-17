@@ -15,6 +15,7 @@ import {
 	getWorktreeList as gitGetWorktreeList,
 	removeWorktree as gitRemoveWorktree,
 } from '@/utils/git';
+import { tryCatch } from '@/utils/try-catch';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export type WorktreeInfo = GitWorktreeInfo;
@@ -49,11 +50,11 @@ export async function status(): Promise<StatusResult> {
 	const gitRoot = await findGitRootOrThrow();
 	const gitDirResult = await execGit(['rev-parse', '--git-dir'], gitRoot);
 
-	if (!gitDirResult.success) {
+	if (gitDirResult.error) {
 		return { enabled: false, count: 0 };
 	}
 
-	const gitDir = gitDirResult.stdout;
+	const gitDir = gitDirResult.data.stdout;
 	const worktreesPath = join(gitRoot, gitDir, 'worktrees');
 	const hasWorktrees = await exists(worktreesPath);
 	const isBare = gitDir.endsWith('.git') || gitDir.includes('.bare');
@@ -158,16 +159,14 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 
 async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]): Promise<void> {
 	for (const item of itemsToRollback) {
-		try {
-			await move(`${tempDir}/${item}`, item);
-		} catch {
+		const { error } = await tryCatch(move(`${tempDir}/${item}`, item));
+		if (error) {
 			// Continue rollback
 		}
 	}
 
-	try {
-		await $`rm -rf ${tempDir}`.quiet();
-	} catch {
+	const { error } = await tryCatch($`rm -rf ${tempDir}`.quiet());
+	if (error) {
 		// Ignore cleanup errors
 	}
 }
@@ -186,7 +185,10 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 	}
 
 	const statusResult = await execGit(['status', '--porcelain', '--untracked-files=no']);
-	if (statusResult.stdout.trim()) {
+	if (statusResult.error) {
+		throw statusResult.error;
+	}
+	if (statusResult.data.stdout.trim()) {
 		throw new GitError(
 			'Uncommitted changes detected. Commit or stash changes before setup.',
 			'git status --porcelain --untracked-files=no'
@@ -226,15 +228,14 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			}
 		}
 
-		try {
-			await move(tempDir, targetDirName);
-		} catch (error) {
-			if ((error as { code?: string }).code === 'EEXIST') {
+		const { error: moveError } = await tryCatch(move(tempDir, targetDirName));
+		if (moveError) {
+			if ((moveError as { code?: string }).code === 'EEXIST') {
 				throw new FileSystemError(
 					`Directory '${targetDirName}' already exists. Cannot proceed with setup.`
 				);
 			}
-			throw error;
+			throw moveError;
 		}
 
 		return {
