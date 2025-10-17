@@ -14,6 +14,7 @@ import {
 	promptSelectWorktree,
 	spinner,
 } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 
 export async function removeCommand(
 	branch?: string,
@@ -62,7 +63,7 @@ export async function removeCommand(
 
 	// Check if branch is merged (unless force is true)
 	if (!options?.force) {
-		const defaultBranch = await getDefaultBranch(gitRoot);
+		const defaultBranch = (await getDefaultBranch(gitRoot)) || 'main';
 		const merged = await isBranchMerged(branch, defaultBranch, gitRoot);
 
 		if (!merged) {
@@ -90,12 +91,7 @@ export async function removeCommand(
 	const config = await loadAndValidateConfig(gitRoot);
 
 	// Capture current directory before removal (worktree deletion may invalidate cwd)
-	let currentDir: string | null = null;
-	try {
-		currentDir = process.cwd();
-	} catch {
-		// Already in invalid directory, ignore
-	}
+	const { data: currentDir } = tryCatch(() => process.cwd());
 
 	const s = spinner();
 	s.start('Removing worktree');

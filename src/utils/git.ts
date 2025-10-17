@@ -174,19 +174,23 @@ export async function isGitRepository(cwd?: string): Promise<boolean> {
 	return error === null;
 }
 
-export async function isBranchMerged(branch: string, targetBranch: string, cwd?: string): Promise<boolean> {
+export async function isBranchMerged(
+	branch: string,
+	targetBranch: string,
+	cwd?: string
+): Promise<boolean> {
 	// git branch --merged <targetBranch> lists all branches merged into targetBranch
 	const result = await execGit(['branch', '--merged', targetBranch], cwd);
 
-	if (!result.success) {
+	if (result.error) {
 		return false;
 	}
 
 	// Parse output - format is "  branch-name" or "* current-branch"
-	const mergedBranches = result.stdout
+	const mergedBranches = result.data.stdout
 		.split('\n')
-		.map(line => line.trim().replace(/^\*\s+/, ''))
-		.filter(line => line.length > 0);
+		.map((line: string) => line.trim().replace(/^\*\s+/, ''))
+		.filter((line: string) => line.length > 0);
 
 	return mergedBranches.includes(branch);
 }

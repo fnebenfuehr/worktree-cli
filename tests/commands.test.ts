@@ -92,8 +92,10 @@ describe('Command Error Handling', () => {
 		});
 
 		test('throws FileSystemError when worktree does not exist', async () => {
-			await expect(removeCommand('nonexistent-branch-12345')).rejects.toThrow(FileSystemError);
-			await expect(removeCommand('nonexistent-branch-12345')).rejects.toThrow(
+			await expect(removeCommand('nonexistent-branch-12345', { force: true })).rejects.toThrow(
+				FileSystemError
+			);
+			await expect(removeCommand('nonexistent-branch-12345', { force: true })).rejects.toThrow(
 				'No such worktree directory'
 			);
 		});
