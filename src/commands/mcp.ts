@@ -1,7 +1,16 @@
 import { startMCPServer } from '@/mcp/server';
-import { intro, log, outro } from '@/utils/prompts';
+import { intro, log, note, outro } from '@/utils/prompts';
 
 const EXPECTED_TOOL_COUNT = 6;
+
+const MCP_CONFIG_CODE = {
+	mcpServers: {
+		worktree: {
+			command: 'worktree',
+			args: ['mcp', 'start'],
+		},
+	},
+};
 
 interface JsonRpcResponse {
 	jsonrpc: string;
@@ -20,35 +29,13 @@ export async function mcpStartCommand(): Promise<number> {
 }
 
 export async function mcpConfigCommand(options?: { json?: boolean }): Promise<number> {
-	const config = {
-		mcpServers: {
-			worktree: {
-				command: 'worktree',
-				args: ['mcp', 'start'],
-			},
-		},
-	};
-
 	if (options?.json) {
-		console.log(JSON.stringify(config, null, 2));
+		console.log(JSON.stringify(MCP_CONFIG_CODE, null, 2));
 		return 0;
 	}
 
 	intro('MCP Server Configuration');
-
-	log.message('Add this to your AI assistant configuration:\n');
-
-	log.step('Claude Desktop (~/.config/Claude/claude_desktop_config.json):');
-	log.message(JSON.stringify(config, null, 2));
-	log.message('');
-
-	log.step('Cody (VS Code settings.json):');
-	log.message(JSON.stringify({ 'mcp.servers': config.mcpServers }, null, 2));
-	log.message('');
-
-	log.step('Cursor (.cursor/config.json):');
-	log.message(JSON.stringify(config, null, 2));
-
+	note(JSON.stringify(MCP_CONFIG_CODE, null, 2), 'Add this to your AI assistant configuration');
 	outro('After adding, restart your AI assistant. Test with: worktree mcp test');
 
 	return 0;
@@ -116,9 +103,9 @@ export async function mcpTestCommand(): Promise<number> {
 			return 1;
 		}
 
-		log.step(`✓ Server started successfully`);
-		log.step(`✓ Tools registered (${toolCount} tools available)`);
-		log.step('✓ Server responds to requests');
+		log.success('Server started successfully');
+		log.success(`Tools registered (${toolCount} tools available)`);
+		log.success('Server responds to requests');
 
 		spawn.kill();
 		outro('Ready to use with AI assistants!');
