@@ -1,6 +1,6 @@
-# Git Worktree CLI
+# Worktree CLI
 
-A modern, production-ready CLI tool for managing git worktrees with ease. Built with Bun and TypeScript.
+A modern CLI for managing git worktrees that enables parallel AI coding assistants and simultaneous multi-branch development.
 
 ## Why Git Worktrees?
 
@@ -20,7 +20,7 @@ Git worktrees allow you to have multiple working directories for a single reposi
 - **Lifecycle Hooks**: Automate setup/teardown with configurable post-create, pre-remove, and post-remove hooks
 - **File Management**: Copy files from main worktree (env files, configs, etc.)
 - **Safety First**: Prevents data loss with uncommitted change detection and unmerged branch warnings
-- **AI Integration**: MCP server for Claude Code, Cody, Cursor - let AI manage worktrees for you
+- **AI Integration**: MCP server support - let AI assistants manage worktrees for parallel development
 
 ## Installation
 
