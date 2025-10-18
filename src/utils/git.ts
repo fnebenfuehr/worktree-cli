@@ -127,6 +127,23 @@ export async function createBranch(
 	baseBranch: string,
 	cwd?: string
 ): Promise<void> {
+	// Check if base branch exists locally
+	const localExists = await branchExists(baseBranch, cwd);
+
+	if (localExists) {
+		// Use local branch directly (no need to fetch)
+		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
+		if (branchError) {
+			throw new GitError(
+				`Failed to create branch '${branch}' from '${baseBranch}'`,
+				`git branch ${branch} ${baseBranch}`,
+				{ cause: branchError }
+			);
+		}
+		return;
+	}
+
+	// If not local, fetch from origin
 	const { error: fetchError } = await tryCatch(execGit(['fetch', 'origin', baseBranch], cwd));
 	if (fetchError) {
 		throw new GitError(

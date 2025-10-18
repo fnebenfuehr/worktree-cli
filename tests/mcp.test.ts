@@ -16,7 +16,6 @@ import {
 	worktreeStatus,
 	worktreeSwitch,
 } from '@/mcp/tools';
-import { tryCatch } from '@/utils/try-catch';
 
 let testDir: string;
 let originalCwd: string;
@@ -37,18 +36,9 @@ beforeEach(async () => {
 	await $`git config user.email "test@example.com"`.quiet();
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
-	await $`git push -u origin main`.quiet();
 
-	// Verify remote is set up correctly, fallback to manual HEAD setup if needed
-	const { error, data } = await tryCatch(async () => {
-		const result = await $`git remote show origin`.quiet();
-		return result.stdout.toString();
-	});
-
-	if (error || data?.includes('(unknown)')) {
-		// Fallback: manually set the default branch on bare repo
-		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
-	}
+	// Set bare repo HEAD (worktrees work fine without pushing)
+	await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
 });
 
 afterEach(async () => {
@@ -138,11 +128,11 @@ describe('MCP worktreeCreate', () => {
 	});
 
 	test('accepts custom base branch', async () => {
+		// Create develop branch locally
 		await $`git checkout -b develop`.quiet();
 		await writeFile('develop.txt', 'develop');
 		await $`git add .`.quiet();
 		await $`git commit -m "Develop"`.quiet();
-		await $`git push -u origin develop`.quiet();
 		await $`git checkout main`.quiet();
 
 		const result = await worktreeCreate('feature/from-develop', 'develop');
