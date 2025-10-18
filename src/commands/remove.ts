@@ -127,6 +127,11 @@ export async function removeCommand(
 		});
 	}
 
+	// If current directory was the removed worktree, change to gitRoot to avoid ENOENT
+	if (currentDir === worktreePath) {
+		process.chdir(gitRoot);
+	}
+
 	const remainingWorktrees = await worktree.list();
 	const mainWorktree = remainingWorktrees[0];
 
