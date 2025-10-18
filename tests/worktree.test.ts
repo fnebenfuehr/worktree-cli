@@ -19,6 +19,7 @@ import {
 
 let testDir: string;
 let originalCwd: string;
+let defaultBranch: string;
 
 beforeEach(async () => {
 	originalCwd = process.cwd();
@@ -37,13 +38,17 @@ beforeEach(async () => {
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
 
+	// Get the default branch name (master in CI, main locally)
+	const branchResult = await $`git branch --show-current`.quiet();
+	defaultBranch = branchResult.stdout.toString().trim();
+
 	// Push to populate bare repo
 	// In CI this might fail, but that's okay - tests don't require remote connectivity
 	try {
-		await $`git push -u origin main`.quiet();
+		await $`git push -u origin ${defaultBranch}`.quiet();
 	} catch {
 		// Push failed - manually set up bare repo HEAD ref so worktrees work
-		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
+		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/${defaultBranch}`.quiet();
 	}
 });
 
@@ -76,7 +81,7 @@ describe('worktree.list()', () => {
 		const worktrees = await worktree.list();
 
 		expect(worktrees.length).toBe(1);
-		expect(worktrees[0].branch).toBe('main');
+		expect(worktrees[0].branch).toBe(defaultBranch);
 		expect(worktrees[0].path).toContain('main');
 	});
 
@@ -119,7 +124,7 @@ describe('worktree.create()', () => {
 		await writeFile('develop.txt', 'develop');
 		await $`git add .`.quiet();
 		await $`git commit -m "Develop commit"`.quiet();
-		await $`git checkout main`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
 
 		const result = await worktree.create('feature/from-develop', 'develop');
 
@@ -160,9 +165,9 @@ describe('worktree.create()', () => {
 
 describe('worktree.switchTo()', () => {
 	test('returns path to existing worktree', async () => {
-		const result = await worktree.switchTo('main');
+		const result = await worktree.switchTo(defaultBranch);
 
-		expect(result.branch).toBe('main');
+		expect(result.branch).toBe(defaultBranch);
 		expect(result.path).toContain('main');
 	});
 
@@ -188,7 +193,7 @@ describe('worktree.remove() - safety checks', () => {
 		await writeFile('feature.txt', 'feature work');
 		await $`git add .`.quiet();
 		await $`git commit -m "Add feature"`.quiet();
-		await $`git checkout main`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
 
 		// Create worktree from unmerged branch
 		await $`git worktree add ../feature-unmerged feature/unmerged`.quiet();
@@ -203,7 +208,7 @@ describe('worktree.remove() - safety checks', () => {
 		await writeFile('feature.txt', 'work');
 		await $`git add .`.quiet();
 		await $`git commit -m "Add feature"`.quiet();
-		await $`git checkout main`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
 		await $`git worktree add ../feature-dirty feature/dirty`.quiet();
 
 		// Add uncommitted change (will fail on uncommitted check before merge check)
@@ -220,7 +225,7 @@ describe('worktree.remove() - safety checks', () => {
 		await writeFile('feature.txt', 'work');
 		await $`git add .`.quiet();
 		await $`git commit -m "Add feature"`.quiet();
-		await $`git checkout main`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
 		await $`git worktree add ../feature-force-test feature/force-test`.quiet();
 
 		// Add uncommitted change
