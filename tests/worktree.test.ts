@@ -37,15 +37,13 @@ beforeEach(async () => {
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
 
-	// Push to populate bare repo (needed for getDefaultBranch to work properly)
-	// In CI this might fail, but we try anyway
+	// Push to populate bare repo
+	// In CI this might fail, but that's okay - tests don't require remote connectivity
 	try {
 		await $`git push -u origin main`.quiet();
 	} catch {
-		// Push failed - manually set up bare repo refs
+		// Push failed - manually set up bare repo HEAD ref so worktrees work
 		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
-		// Set remote HEAD to point to main so 'git remote show origin' works
-		await $`git remote set-head origin main`.quiet();
 	}
 });
 
