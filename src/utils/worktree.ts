@@ -3,6 +3,7 @@
  */
 
 import { resolve, sep } from 'node:path';
+
 import { log } from './prompts';
 
 export interface Worktree {
@@ -22,9 +23,7 @@ export function displayWorktrees(worktrees: Worktree[]): void {
 		const isMain = i === 0;
 
 		let icon: string;
-		if (isCurrent) {
-			icon = '➜';
-		} else if (isMain) {
+		if (isMain) {
 			icon = '⚡';
 		} else {
 			icon = '📦';

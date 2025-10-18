@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { realpath as fsRealpath, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { branchToDirName, extractRepoName, realpath } from '@/utils/fs';
+import { branchToDirName, extractRepoName } from '@/utils/naming';
 
 describe('fs utilities', () => {
 	describe('extractRepoName', () => {
@@ -42,43 +42,6 @@ describe('fs utilities', () => {
 
 		test('handles empty string', () => {
 			expect(branchToDirName('')).toBe('');
-		});
-	});
-
-	describe('realpath', () => {
-		let tempDir: string;
-		let testFile: string;
-		let symlinkPath: string;
-
-		beforeAll(async () => {
-			tempDir = await mkdtemp(join(tmpdir(), 'realpath-test-'));
-			// Normalize tempDir to handle macOS /var -> /private/var symlink
-			tempDir = await fsRealpath(tempDir);
-			testFile = join(tempDir, 'test.txt');
-			symlinkPath = join(tempDir, 'symlink');
-
-			await writeFile(testFile, 'test content');
-			await symlink(testFile, symlinkPath);
-		});
-
-		afterAll(async () => {
-			await rm(tempDir, { recursive: true, force: true });
-		});
-
-		test('resolves symlinks correctly', async () => {
-			const resolved = await realpath(symlinkPath);
-			expect(resolved).toBe(testFile);
-		});
-
-		test('returns normalized path for regular files', async () => {
-			const resolved = await realpath(testFile);
-			expect(resolved).toBe(testFile);
-		});
-
-		test('returns original path on error', async () => {
-			const nonexistent = '/nonexistent/path/file.txt';
-			const result = await realpath(nonexistent);
-			expect(result).toBe(nonexistent);
 		});
 	});
 });

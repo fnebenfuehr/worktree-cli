@@ -1,8 +1,31 @@
 import * as worktree from '@/core/worktree';
-import { FileSystemError, GitError, ValidationError } from '@/utils/errors';
+import {
+	FileSystemError,
+	GitError,
+	MergeStatusUnknownError,
+	UncommittedChangesError,
+	UnmergedBranchError,
+	ValidationError,
+} from '@/utils/errors';
+import { tryCatch } from '@/utils/try-catch';
 import type { ToolResult } from './types';
 
 function classifyError(error: unknown): Extract<ToolResult<never>, { success: false }> {
+	if (
+		error instanceof UncommittedChangesError ||
+		error instanceof UnmergedBranchError ||
+		error instanceof MergeStatusUnknownError
+	) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'git_error',
+			recoverable: true,
+			suggestion:
+				'Use force: true to override safety checks, but only if explicitly requested by user',
+		};
+	}
+
 	if (error instanceof GitError) {
 		return {
 			success: false,
@@ -42,12 +65,9 @@ function classifyError(error: unknown): Extract<ToolResult<never>, { success: fa
 }
 
 export async function handleToolError<T>(fn: () => Promise<T>): Promise<ToolResult<T>> {
-	try {
-		const data = await fn();
-		return { success: true, data };
-	} catch (error) {
-		return classifyError(error);
-	}
+	const { data, error } = await tryCatch(fn());
+	if (error) return classifyError(error);
+	return { success: true, data };
 }
 
 export async function worktreeStatus(): Promise<ToolResult<worktree.StatusResult>> {
