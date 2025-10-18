@@ -95,7 +95,7 @@ describe('MCP worktreeList', () => {
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.length).toBe(1);
-			expect(result.data[0].branch).toBe('main');
+			expect(result.data[0].branch).toBe(defaultBranch);
 		}
 	});
 
@@ -180,11 +180,11 @@ describe('MCP worktreeCreate', () => {
 
 describe('MCP worktreeSwitch', () => {
 	test('returns success with worktree path', async () => {
-		const result = await worktreeSwitch('main');
+		const result = await worktreeSwitch(defaultBranch);
 
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.branch).toBe('main');
+			expect(result.data.branch).toBe(defaultBranch);
 			expect(result.data.path).toContain('main');
 		}
 	});
