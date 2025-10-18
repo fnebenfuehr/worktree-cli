@@ -37,8 +37,14 @@ beforeEach(async () => {
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
 
-	// Set bare repo HEAD (worktrees work fine without pushing)
-	await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
+	// Push to populate bare repo (needed for getDefaultBranch to work properly)
+	// In CI this might fail, but we try anyway
+	try {
+		await $`git push -u origin main`.quiet();
+	} catch {
+		// Push failed - set symbolic-ref as fallback
+		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
+	}
 });
 
 afterEach(async () => {
