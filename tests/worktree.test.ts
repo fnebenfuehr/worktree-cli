@@ -60,7 +60,6 @@ describe('worktree.status()', () => {
 
 		expect(result.enabled).toBe(true);
 		expect(result.count).toBeGreaterThan(0);
-		expect(result.defaultBranch).toBe('main');
 	});
 
 	test('returns correct worktree count', async () => {

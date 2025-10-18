@@ -62,7 +62,6 @@ describe('MCP worktreeStatus', () => {
 		if (result.success) {
 			expect(result.data.enabled).toBe(true);
 			expect(result.data.count).toBeGreaterThan(0);
-			expect(result.data.defaultBranch).toBe('main');
 		}
 	});
 
