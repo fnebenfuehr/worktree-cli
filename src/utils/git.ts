@@ -84,8 +84,10 @@ export async function getDefaultBranch(cwd?: string): Promise<string> {
 
 	if (!error) {
 		const match = data.stdout.match(/HEAD branch:\s*(.+)/);
-		if (match?.[1]) {
-			return match[1].trim();
+		const branch = match?.[1]?.trim();
+		// Filter out git's "(unknown)" placeholder (happens with empty bare repos)
+		if (branch && branch !== '(unknown)') {
+			return branch;
 		}
 	}
 

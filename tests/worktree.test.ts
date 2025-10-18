@@ -16,6 +16,7 @@ import {
 	UnmergedBranchError,
 	ValidationError,
 } from '@/utils/errors';
+import { tryCatch } from '@/utils/try-catch';
 
 let testDir: string;
 let originalCwd: string;
@@ -36,14 +37,17 @@ beforeEach(async () => {
 	await $`git config user.email "test@example.com"`.quiet();
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
+	await $`git push -u origin main`.quiet();
 
-	// Push to origin using try-catch to handle CI environment differences
-	try {
-		await $`git push -u origin main`.quiet();
-	} catch (error) {
-		// In CI, push might fail due to shell differences, but tests can continue
-		// The commit exists locally which is enough for most tests
-		console.warn('Failed to push to origin (OK in CI):', error);
+	// Verify remote is set up correctly, fallback to manual HEAD setup if needed
+	const { error, data } = await tryCatch(async () => {
+		const result = await $`git remote show origin`.quiet();
+		return result.stdout.toString();
+	});
+
+	if (error || data?.includes('(unknown)')) {
+		// Fallback: manually set the default branch on bare repo
+		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
 	}
 });
 

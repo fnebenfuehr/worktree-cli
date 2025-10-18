@@ -16,6 +16,7 @@ import {
 	worktreeStatus,
 	worktreeSwitch,
 } from '@/mcp/tools';
+import { tryCatch } from '@/utils/try-catch';
 
 let testDir: string;
 let originalCwd: string;
@@ -37,6 +38,17 @@ beforeEach(async () => {
 	await $`git config user.name "Test User"`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
 	await $`git push -u origin main`.quiet();
+
+	// Verify remote is set up correctly, fallback to manual HEAD setup if needed
+	const { error, data } = await tryCatch(async () => {
+		const result = await $`git remote show origin`.quiet();
+		return result.stdout.toString();
+	});
+
+	if (error || data?.includes('(unknown)')) {
+		// Fallback: manually set the default branch on bare repo
+		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
+	}
 });
 
 afterEach(async () => {
