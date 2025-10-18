@@ -42,8 +42,10 @@ beforeEach(async () => {
 	try {
 		await $`git push -u origin main`.quiet();
 	} catch {
-		// Push failed - set symbolic-ref as fallback
+		// Push failed - manually set up bare repo refs
 		await $`git --git-dir=${testDir}/.bare symbolic-ref HEAD refs/heads/main`.quiet();
+		// Set remote HEAD to point to main so 'git remote show origin' works
+		await $`git remote set-head origin main`.quiet();
 	}
 });
 
