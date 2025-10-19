@@ -1,9 +1,11 @@
 import { mkdir } from 'node:fs/promises';
 import { $ } from 'bun';
 import { FileSystemError, GitError, ValidationError, WorktreeError } from '@/utils/errors';
-import { extractRepoName, move } from '@/utils/fs';
+import { move } from '@/utils/fs';
 import { getCurrentBranch } from '@/utils/git';
+import { extractRepoName } from '@/utils/naming';
 import { intro, isInteractive, outro, promptGitUrl, spinner } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 import { isValidGitUrl, VALIDATION_ERRORS } from '@/utils/validation';
 
 export async function cloneCommand(gitUrl?: string): Promise<number> {
@@ -25,15 +27,14 @@ export async function cloneCommand(gitUrl?: string): Promise<number> {
 		);
 	}
 
-	try {
-		await mkdir(repoName);
-	} catch (error) {
-		if ((error as { code?: string }).code === 'EEXIST') {
+	const { error: mkdirError } = await tryCatch(mkdir(repoName));
+	if (mkdirError) {
+		if ((mkdirError as { code?: string }).code === 'EEXIST') {
 			throw new FileSystemError(
 				`Directory '${repoName}' already exists. Use a different location or remove the existing directory.`
 			);
 		}
-		throw error;
+		throw mkdirError;
 	}
 
 	const s = spinner();
@@ -73,11 +74,7 @@ export async function cloneCommand(gitUrl?: string): Promise<number> {
 	} catch (error) {
 		s.stop('Clone failed');
 
-		try {
-			await $`rm -rf ${[repoName]}`.quiet();
-		} catch {
-			// Ignore cleanup errors
-		}
+		await tryCatch($`rm -rf ${[repoName]}`.quiet());
 
 		if (error instanceof WorktreeError) {
 			throw error;

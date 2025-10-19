@@ -7,10 +7,10 @@ import {
 	log,
 	note,
 	outro,
+	printWorktreeList,
 	promptSelectWorktree,
 	spinner,
 } from '@/utils/prompts';
-import { displayWorktrees } from '@/utils/worktree';
 
 export async function switchCommand(branch?: string): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
@@ -39,7 +39,7 @@ export async function switchCommand(branch?: string): Promise<number> {
 		branch = await promptSelectWorktree(worktreeOptions, 'Select worktree to switch to');
 	} else if (!branch) {
 		intro('Available Worktrees');
-		displayWorktrees(worktrees);
+		printWorktreeList(worktrees);
 		log.message('');
 		throw new ValidationError('Branch name required. Usage: worktree switch <branch-name>');
 	}

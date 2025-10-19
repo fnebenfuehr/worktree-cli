@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { branchToDirName, extractRepoName } from '@/utils/fs';
+import { branchToDirName, extractRepoName } from '@/utils/naming';
 
 describe('fs utils', () => {
 	describe('extractRepoName', () => {

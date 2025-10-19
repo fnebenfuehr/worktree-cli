@@ -1,11 +1,18 @@
+import { resolve, sep } from 'node:path';
 import * as p from '@clack/prompts';
 import { UserCancelledError } from '@/utils/errors';
+import { tryCatch } from '@/utils/try-catch';
 import { isValidBranchName, isValidGitUrl, VALIDATION_ERRORS } from '@/utils/validation';
 
 export interface WorktreeOption {
 	value: string;
 	label: string;
 	hint?: string;
+}
+
+export interface Worktree {
+	branch: string;
+	path: string;
 }
 
 // Only needed for gating interactive prompts (text, select, confirm)
@@ -110,4 +117,27 @@ export const note = p.note;
 export function cancel(message: string = 'Operation cancelled'): never {
 	p.cancel(message);
 	throw new UserCancelledError(message);
+}
+
+export function printWorktreeList(worktrees: Worktree[]): void {
+	const { data: currentDir } = tryCatch(() => resolve(process.cwd()));
+
+	worktrees.forEach((wt, i) => {
+		const resolvedWtPath = resolve(wt.path);
+		const isCurrent =
+			currentDir && (currentDir === resolvedWtPath || currentDir.startsWith(resolvedWtPath + sep));
+		const isMain = i === 0;
+
+		let icon: string;
+		if (isMain) {
+			icon = '⚡';
+		} else {
+			icon = '📦';
+		}
+
+		const currentLabel = isCurrent ? ' (current)' : '';
+		const paddedBranch = wt.branch.padEnd(30, ' ');
+
+		log.message(`${icon} ${paddedBranch}${wt.path}${currentLabel}`);
+	});
 }

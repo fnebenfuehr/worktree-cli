@@ -1,22 +1,24 @@
 import { loadAndValidateConfig } from '@/config/loader';
 import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
-import { ValidationError } from '@/utils/errors';
-import { findGitRootOrThrow } from '@/utils/git';
+import { GitError, ValidationError } from '@/utils/errors';
+import { getGitRoot, getMainWorktreePath } from '@/utils/git';
 import {
 	cancel,
 	intro,
 	isInteractive,
+	log,
 	note,
 	outro,
 	promptConfirm,
 	promptSelectWorktree,
 	spinner,
 } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 
 export async function removeCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean }
+	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -57,23 +59,66 @@ export async function removeCommand(
 		}
 	}
 
-	const gitRoot = await findGitRootOrThrow();
+	const gitRoot = await getGitRoot();
+
+	// Capture current directory and main worktree path before removal (worktree deletion may invalidate cwd)
+	const { data: currentDir } = tryCatch(() => process.cwd());
+	const mainWorktreePath = await getMainWorktreePath();
+
+	// Verify worktree exists before doing expensive checks
+	const worktrees = await worktree.list();
+	const targetWorktree = worktrees.find((wt) => wt.branch === branch);
+
+	if (!targetWorktree) {
+		throw new ValidationError(
+			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
+		);
+	}
+
+	const worktreePath = targetWorktree.path;
+
 	const config = await loadAndValidateConfig(gitRoot);
-
-	const s = spinner();
-	s.start('Removing worktree');
-
-	const result = await worktree.remove(branch);
 
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
-			cwd: result.path,
+			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
 		});
 	}
 
-	s.stop('Worktree removed successfully');
+	const s = spinner();
+	s.start('Removing worktree');
+
+	const { error: removeError } = await tryCatch(() =>
+		worktree.remove(branch, options?.force || false)
+	);
+
+	if (removeError) {
+		s.stop();
+
+		// In interactive mode, catch GitErrors and prompt user to override with force
+		if (removeError instanceof GitError && isInteractive() && !options?.force) {
+			log.warn(removeError.message);
+			const proceedWithForce = await promptConfirm('Proceed with forced removal?', false);
+
+			if (!proceedWithForce) {
+				cancel('Removal cancelled');
+			}
+
+			s.start('Removing worktree (forced)');
+			const { error: forceError } = await tryCatch(() => worktree.remove(branch, true));
+			s.stop();
+
+			if (forceError) {
+				throw forceError;
+			}
+		} else {
+			throw removeError;
+		}
+	} else {
+		s.stop('Worktree removed successfully');
+	}
 
 	if (config) {
 		await executeHooks(config, 'post_remove', {
@@ -83,18 +128,10 @@ export async function removeCommand(
 		});
 	}
 
-	const remainingWorktrees = await worktree.list();
-	const mainWorktree = remainingWorktrees[0];
-
-	if (mainWorktree) {
-		const currentDir = process.cwd();
-		const isInMainWorktree = currentDir === mainWorktree.path;
-
+	// If we were in the removed worktree (or its subdirectory), show message to switch to main
+	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(worktreePath + '/')) {
 		outro(`Worktree for branch '${branch}' has been removed`);
-
-		if (!isInMainWorktree) {
-			note(`cd ${mainWorktree.path}`, `To switch to main worktree (${mainWorktree.branch}), run:`);
-		}
+		note(`cd ${mainWorktreePath}`, 'To return to main worktree, run:');
 	} else {
 		outro(`Worktree for branch '${branch}' has been removed`);
 	}

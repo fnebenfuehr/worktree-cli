@@ -1,6 +1,6 @@
-# Git Worktree CLI
+# Worktree CLI
 
-A modern, production-ready CLI tool for managing git worktrees with ease. Built with Bun and TypeScript.
+A modern CLI for managing git worktrees that enables parallel AI coding assistants and simultaneous multi-branch development.
 
 ## Why Git Worktrees?
 
@@ -19,8 +19,8 @@ Git worktrees allow you to have multiple working directories for a single reposi
 - **Smart Defaults**: Automatically detects default branches and handles edge cases
 - **Lifecycle Hooks**: Automate setup/teardown with configurable post-create, pre-remove, and post-remove hooks
 - **File Management**: Copy files from main worktree (env files, configs, etc.)
-- **Safety First**: Prevents accidental removal of active worktrees
-- **AI Integration**: MCP server for Claude Code, Cody, Cursor - let AI manage worktrees for you
+- **Safety First**: Prevents data loss with uncommitted change detection and unmerged branch warnings
+- **AI Integration**: MCP server support - let AI assistants manage worktrees for parallel development
 
 ## Installation
 
@@ -124,8 +124,6 @@ Remove a worktree when you're done:
 ```bash
 worktree remove feature/new-feature
 ```
-
-**Safety**: You cannot remove a worktree you're currently inside.
 
 #### List All Worktrees
 
@@ -236,15 +234,24 @@ Remove an existing git worktree.
 **Options:**
 - `-i, --interactive` - Interactive mode with confirmation prompt
 - `--no-hooks` - Skip running lifecycle hooks
+- `-f, --force` - Force removal, bypass safety checks
 
 **Safety:**
 
-- Prevents removal if you're currently in that worktree
+- Cannot remove main worktree (first worktree in list)
+- Prevents removal if worktree has uncommitted changes (unless `--force`)
+- Prevents removal if branch is not merged to default branch (unless `--force`)
+  - Interactive mode: warns and prompts for confirmation
+  - Non-interactive mode: fails with error
 
-**Example:**
+**Examples:**
 
 ```bash
+# Remove a worktree
 worktree remove feature/user-auth
+
+# Force remove even with uncommitted changes or unmerged branch
+worktree remove feature/user-auth --force
 ```
 
 ### `worktree switch [branch]`

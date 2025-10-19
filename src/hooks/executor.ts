@@ -1,6 +1,7 @@
 import { $ } from 'bun';
 import type { WorktreeConfig } from '@/config/loader';
 import { log, spinner } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 
 export type HookType = 'post_create' | 'pre_remove' | 'post_remove';
 
@@ -25,15 +26,18 @@ interface CommandResult {
 
 export async function executeCommand(command: string, cwd: string): Promise<CommandResult> {
 	const { shell, flag } = getShellConfig();
-	try {
+	const { error, data } = await tryCatch(async () => {
 		const result = await $`${shell} ${flag} ${command}`.cwd(cwd).quiet();
 		return {
 			exitCode: result.exitCode,
 			stdout: result.stdout,
 			stderr: result.stderr,
 		};
-	} catch (error: unknown) {
-		if (error instanceof Error && 'exitCode' in error) {
+	});
+
+	if (error) {
+		// Check if it's a shell error with exit code info
+		if ('exitCode' in error) {
 			const shellError = error as Error & { exitCode: number; stdout?: Buffer; stderr?: Buffer };
 			return {
 				exitCode: shellError.exitCode,
@@ -43,6 +47,8 @@ export async function executeCommand(command: string, cwd: string): Promise<Comm
 		}
 		throw error;
 	}
+
+	return data;
 }
 
 interface ExecuteHooksOptions {
@@ -73,29 +79,11 @@ export async function executeHooks(
 		if (!command) continue;
 
 		const s = spinner();
+		s.start(`Running: ${command} (${i + 1}/${commands.length})`);
 
-		try {
-			s.start(`Running: ${command} (${i + 1}/${commands.length})`);
+		const { error, data: result } = await tryCatch(executeCommand(command, options.cwd));
 
-			const result = await executeCommand(command, options.cwd);
-
-			if (result.exitCode !== 0) {
-				s.stop(`Failed: ${command}`);
-				log.warn(`Hook failed (via ${shellContext}): ${command}`);
-
-				if (options.verbose && result.stderr) {
-					console.error(result.stderr.toString());
-				}
-
-				continue;
-			}
-
-			s.stop(`Done: ${command}`);
-
-			if (options.verbose && result.stdout) {
-				console.log(result.stdout.toString());
-			}
-		} catch (error) {
+		if (error) {
 			s.stop(`Error: ${command}`);
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			log.warn(`Hook execution failed (via ${shellContext}): ${command}\nReason: ${errorMsg}`);
@@ -103,6 +91,23 @@ export async function executeHooks(
 			if (options.verbose) {
 				console.error(error);
 			}
+			continue;
+		}
+
+		if (result.exitCode !== 0) {
+			s.stop(`Failed: ${command}`);
+			log.warn(`Hook failed (via ${shellContext}): ${command}`);
+
+			if (options.verbose && result.stderr) {
+				console.error(result.stderr.toString());
+			}
+			continue;
+		}
+
+		s.stop(`Done: ${command}`);
+
+		if (options.verbose && result.stdout) {
+			console.log(result.stdout.toString());
 		}
 	}
 }
