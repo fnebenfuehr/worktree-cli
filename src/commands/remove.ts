@@ -122,7 +122,7 @@ export async function removeCommand(
 
 	if (config) {
 		await executeHooks(config, 'post_remove', {
-			cwd: gitRoot,
+			cwd: mainWorktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
 		});
