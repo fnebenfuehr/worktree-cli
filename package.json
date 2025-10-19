@@ -1,6 +1,6 @@
 {
 	"name": "@fnebenfuehr/worktree-cli",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"description": "A modern CLI tool for managing git worktrees with ease",
 	"type": "module",
 	"main": "./dist/index.js",
