@@ -60,9 +60,10 @@ program
 Examples:
   $ worktree clone git@github.com:user/my-app.git
   $ worktree setup
-  $ worktree create feature/login
-  $ worktree switch feature/login
-  $ worktree remove feature/login
+  $ worktree create feat/auth
+  $ worktree create feat/login-ui --from feat/auth
+  $ worktree switch feat/auth
+  $ worktree remove fix/bug-123
   $ worktree list
 `
 	)
@@ -91,18 +92,21 @@ program
 interface CommandOptions {
 	hooks?: boolean;
 	force?: boolean;
+	from?: string;
 }
 
 program
 	.command('create [branch]')
 	.description('Create a new git worktree and branch')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('-f, --from <branch>', 'Base branch to create from')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			createCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				from: options.from,
 			})
 		)();
 	});
