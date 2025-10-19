@@ -287,22 +287,29 @@ export async function isBranchMerged(
 	targetBranch: string,
 	cwd?: string
 ): Promise<boolean> {
-	const { error, data } = await tryCatch(execGit(['branch', '--merged', targetBranch], cwd));
+	// Use merge-base --is-ancestor to check if branch is merged into target
+	// This checks if all commits from 'branch' are reachable from 'targetBranch'
+	const { error } = await tryCatch(
+		execGit(['merge-base', '--is-ancestor', branch, targetBranch], cwd)
+	);
 
-	if (error) {
-		throw new GitError(
-			`Failed to check if branch '${branch}' is merged into '${targetBranch}'`,
-			`git branch --merged ${targetBranch}`,
-			{ cause: error }
-		);
+	// Exit code 0 = ancestor (merged), exit code 1 = not ancestor (not merged)
+	// Any other error should be propagated
+	if (!error) {
+		return true;
 	}
 
-	const mergedBranches = data.stdout
-		.split('\n')
-		.map((line: string) => line.trim().replace(/^\*\s+/, ''))
-		.filter((line: string) => line.length > 0);
+	// Check if it's the expected "not merged" error (exit code 1)
+	if (error instanceof GitError && error.message.includes('exit code')) {
+		return false;
+	}
 
-	return mergedBranches.includes(branch);
+	// For any other error, throw it
+	throw new GitError(
+		`Failed to check if branch '${branch}' is merged into '${targetBranch}'`,
+		`git merge-base --is-ancestor ${branch} ${targetBranch}`,
+		{ cause: error }
+	);
 }
 
 export async function hasUncommittedChanges(
