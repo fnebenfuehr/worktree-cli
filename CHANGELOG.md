@@ -1,5 +1,17 @@
 # worktree-cli
 
+## 1.3.0
+
+### Minor Changes
+
+- c996e00: Add ability to create worktrees from any branch using --from flag. When in non-main branch, user is prompted to choose base branch (current or main). Success message now shows base branch. Updated examples to use conventional commit style (feat/_, fix/_).
+- 0916008: Enhance MCP tool descriptions for intelligent worktree management. Improves AI assistant's ability to decide when to create new worktrees vs reuse existing ones based on task context and relationship to current work. Adds smart workflow guidance for agentic coding tools.
+
+### Patch Changes
+
+- 690624a: Fix merge detection to correctly check if branch is merged locally. Previously used `git branch --merged` which showed branches that are ancestors of target (opposite behavior). Now uses `git merge-base --is-ancestor` to properly detect if branch commits are reachable from target branch, regardless of push status.
+- a63d4b5: fix: post_remove hook now runs in main worktree directory instead of current worktree
+
 ## 1.2.0
 
 ### Minor Changes
