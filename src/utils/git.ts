@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { $ } from 'bun';
 import { GitError, ValidationError } from '@/utils/errors';
 import { exists } from '@/utils/fs';
@@ -66,6 +66,35 @@ export async function getGitRoot(cwd?: string): Promise<string> {
 	}
 
 	return data.stdout;
+}
+
+export async function getGitDir(cwd?: string): Promise<string> {
+	const { error, data } = await tryCatch(execGit(['rev-parse', '--git-dir'], cwd));
+	if (error) {
+		throw new GitError(
+			'Could not determine git directory. Are you in a git repository?',
+			'git rev-parse --git-dir',
+			{ cause: error }
+		);
+	}
+	return data.stdout;
+}
+
+export async function getGitCommonDir(cwd?: string): Promise<string> {
+	const { error, data } = await tryCatch(execGit(['rev-parse', '--git-common-dir'], cwd));
+	if (error) {
+		throw new GitError(
+			'Could not determine common git directory',
+			'git rev-parse --git-common-dir',
+			{ cause: error }
+		);
+	}
+	return data.stdout;
+}
+
+export async function getMainWorktreePath(cwd?: string): Promise<string> {
+	const commonDir = await getGitCommonDir(cwd);
+	return dirname(commonDir);
 }
 
 export async function getCurrentBranch(cwd?: string): Promise<string> {
@@ -245,31 +274,12 @@ export async function removeWorktree(
 }
 
 export async function isWorktree(cwd?: string): Promise<boolean> {
-	const { error: gitDirError, data: gitDirData } = await tryCatch(
-		execGit(['rev-parse', '--git-dir'], cwd)
-	);
-	if (gitDirError) {
-		throw new GitError(
-			'Could not determine git directory. Are you in a git repository?',
-			'git rev-parse --git-dir',
-			{ cause: gitDirError }
-		);
-	}
-
-	const { error: commonDirError, data: commonDirData } = await tryCatch(
-		execGit(['rev-parse', '--git-common-dir'], cwd)
-	);
-	if (commonDirError) {
-		throw new GitError(
-			'Could not determine common git directory',
-			'git rev-parse --git-common-dir',
-			{ cause: commonDirError }
-		);
-	}
+	const gitDir = await getGitDir(cwd);
+	const commonDir = await getGitCommonDir(cwd);
 
 	// In worktrees: --git-dir points to .git/worktrees/name, --git-common-dir points to .git
 	// In main repo: both point to the same location (.git)
-	return gitDirData.stdout !== commonDirData.stdout;
+	return gitDir !== commonDir;
 }
 
 export async function isBranchMerged(

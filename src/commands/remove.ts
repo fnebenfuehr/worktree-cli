@@ -2,7 +2,7 @@ import { loadAndValidateConfig } from '@/config/loader';
 import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
 import { GitError, ValidationError } from '@/utils/errors';
-import { getGitRoot } from '@/utils/git';
+import { getGitRoot, getMainWorktreePath } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -61,6 +61,10 @@ export async function removeCommand(
 
 	const gitRoot = await getGitRoot();
 
+	// Capture current directory and main worktree path before removal (worktree deletion may invalidate cwd)
+	const { data: currentDir } = tryCatch(() => process.cwd());
+	const mainWorktreePath = await getMainWorktreePath();
+
 	// Verify worktree exists before doing expensive checks
 	const worktrees = await worktree.list();
 	const targetWorktree = worktrees.find((wt) => wt.branch === branch);
@@ -74,9 +78,6 @@ export async function removeCommand(
 	const worktreePath = targetWorktree.path;
 
 	const config = await loadAndValidateConfig(gitRoot);
-
-	// Capture current directory before removal (worktree deletion may invalidate cwd)
-	const { data: currentDir } = tryCatch(() => process.cwd());
 
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
@@ -127,22 +128,10 @@ export async function removeCommand(
 		});
 	}
 
-	// If current directory was the removed worktree, change to gitRoot to avoid ENOENT
-	if (currentDir === worktreePath) {
-		process.chdir(gitRoot);
-	}
-
-	const remainingWorktrees = await worktree.list();
-	const mainWorktree = remainingWorktrees[0];
-
-	if (mainWorktree && currentDir) {
-		const isInMainWorktree = currentDir === mainWorktree.path;
-
+	// If we were in the removed worktree (or its subdirectory), show message to switch to main
+	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(worktreePath + '/')) {
 		outro(`Worktree for branch '${branch}' has been removed`);
-
-		if (!isInMainWorktree) {
-			note(`cd ${mainWorktree.path}`, `To switch to main worktree (${mainWorktree.branch}), run:`);
-		}
+		note(`cd ${mainWorktreePath}`, 'To return to main worktree, run:');
 	} else {
 		outro(`Worktree for branch '${branch}' has been removed`);
 	}

@@ -1,6 +1,5 @@
 import * as worktree from '@/core/worktree';
-import { intro, log, outro } from '@/utils/prompts';
-import { displayWorktrees } from '@/utils/worktree';
+import { intro, log, outro, printWorktreeList } from '@/utils/prompts';
 
 export async function listCommand(): Promise<number> {
 	intro('Active Worktrees');
@@ -12,7 +11,7 @@ export async function listCommand(): Promise<number> {
 		return 0;
 	}
 
-	displayWorktrees(worktrees);
+	printWorktreeList(worktrees);
 
 	outro(`${worktrees.length} worktree${worktrees.length === 1 ? '' : 's'} found`);
 
