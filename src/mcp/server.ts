@@ -27,7 +27,8 @@ export async function startMCPServer(): Promise<void> {
 			tools: [
 				{
 					name: 'worktree_status',
-					description: 'Check if repo uses worktrees. Call this first before other operations.',
+					description:
+						'Check if repo uses worktrees, current branch, and the default branch. When starting a new task or switching context, check this first. If currently on the default branch (as returned by this tool), you MUST create or switch to a worktree before modifications.',
 					inputSchema: {
 						type: 'object',
 						properties: {},
@@ -35,7 +36,8 @@ export async function startMCPServer(): Promise<void> {
 				},
 				{
 					name: 'worktree_list',
-					description: 'List all worktrees. Use to check what exists or show user active work.',
+					description:
+						'List all worktrees to see existing work contexts. Before creating new worktrees, check if a relevant branch exists for the current task. Shows active branches and their paths.',
 					inputSchema: {
 						type: 'object',
 						properties: {},
@@ -44,13 +46,13 @@ export async function startMCPServer(): Promise<void> {
 				{
 					name: 'worktree_create',
 					description:
-						'Create isolated worktree for features, bugfixes, or experiments. Use when user wants to work on something new without affecting current work. Branch format: feature/name, bugfix/name, or experiment/name. Check worktree_status first if unsure if repo is worktree-enabled.',
+						'Create worktree for isolated work. Smart creation: REUSE existing if continuing related work (e.g., more auth features on feat/auth). CREATE NEW for: different concerns, risky changes, or unrelated work. Branch naming follows Conventional Commits: feat/*, fix/*, chore/*, docs/*, style/*, refactor/*, test/*, build/*, ci/*. When unsure about overlap, ask user or create new for safety.',
 					inputSchema: {
 						type: 'object',
 						properties: {
 							branch: {
 								type: 'string',
-								description: 'Branch name (e.g., feature/dark-mode)',
+								description: 'Branch name (e.g., feat/dark-mode, fix/login-bug)',
 							},
 							baseBranch: {
 								type: 'string',
@@ -63,7 +65,7 @@ export async function startMCPServer(): Promise<void> {
 				{
 					name: 'worktree_switch',
 					description:
-						'Get the absolute path for a worktree branch. Use this path to read/write files in that worktree. You can access files at <path>/src/file.ts directly.',
+						'Switch to a worktree to work in that context. Use when changing between different work areas or after creating a new worktree. Returns the path where you can access files directly.',
 					inputSchema: {
 						type: 'object',
 						properties: {
@@ -78,7 +80,7 @@ export async function startMCPServer(): Promise<void> {
 				{
 					name: 'worktree_remove',
 					description:
-						'Delete worktree. Use after feature is merged. Never force unless user explicitly requests.',
+						'Remove merged or abandoned worktrees. After pushing/merging PRs, proactively suggest cleanup. Check git log for merged branches. Never force unless user explicitly requests.',
 					inputSchema: {
 						type: 'object',
 						properties: {
