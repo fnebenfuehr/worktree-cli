@@ -110,6 +110,21 @@ export async function startMCPServer(): Promise<void> {
 						},
 					},
 				},
+				{
+					name: 'worktree_checkout',
+					description:
+						'Intelligent checkout: switches to worktree if branch exists in a worktree, creates worktree from local branch if it exists locally, or creates worktree from remote branch if found on remote. Automatically handles branch discovery and worktree creation. Preferred over worktree_create when working with existing branches.',
+					inputSchema: {
+						type: 'object',
+						properties: {
+							branch: {
+								type: 'string',
+								description: 'Branch name to checkout',
+							},
+						},
+						required: ['branch'],
+					},
+				},
 			],
 		};
 	});
@@ -184,6 +199,19 @@ export async function startMCPServer(): Promise<void> {
 			case 'worktree_setup': {
 				const { targetDir } = args as { targetDir?: string };
 				const result = await tools.worktreeSetup(targetDir);
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(result, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'worktree_checkout': {
+				const { branch } = args as { branch: string };
+				const result = await tools.worktreeCheckout(branch);
 				return {
 					content: [
 						{

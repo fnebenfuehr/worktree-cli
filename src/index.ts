@@ -6,6 +6,7 @@
  */
 
 import { Command, CommanderError } from 'commander';
+import { checkoutCommand } from '@/commands/checkout';
 import { cloneCommand } from '@/commands/clone';
 import { createCommand } from '@/commands/create';
 import { listCommand } from '@/commands/list';
@@ -62,6 +63,8 @@ Examples:
   $ worktree setup
   $ worktree create feat/auth
   $ worktree create feat/login-ui --from feat/auth
+  $ worktree checkout feat/auth         # switch to existing or create from local/remote
+  $ worktree add feat/dark-mode          # alias for checkout (git-like)
   $ worktree switch feat/auth
   $ worktree remove fix/bug-123
   $ worktree list
@@ -136,6 +139,35 @@ program
 	.command('switch [branch]')
 	.description('Switch to an existing worktree')
 	.action((branch: string | undefined) => handleCommandError(() => switchCommand(branch))());
+
+program
+	.command('checkout [branch]')
+	.description('Checkout a branch (switch to existing worktree or create from local/remote)')
+	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.action((branch: string | undefined, options: CommandOptions, command) => {
+		const globalOpts = command.optsWithGlobals();
+		handleCommandError(() =>
+			checkoutCommand(branch, {
+				skipHooks: !options.hooks,
+				verbose: globalOpts.verbose,
+			})
+		)();
+	});
+
+// Alias 'add' to 'checkout' (git-like naming)
+program
+	.command('add [branch]')
+	.description('Alias for checkout - git-like naming')
+	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.action((branch: string | undefined, options: CommandOptions, command) => {
+		const globalOpts = command.optsWithGlobals();
+		handleCommandError(() =>
+			checkoutCommand(branch, {
+				skipHooks: !options.hooks,
+				verbose: globalOpts.verbose,
+			})
+		)();
+	});
 
 // MCP server commands
 const mcpCommand = program.command('mcp').description('MCP server integration for AI assistants');
