@@ -164,6 +164,21 @@ export async function branchExists(branch: string, cwd?: string): Promise<boolea
 	return error === null;
 }
 
+export async function remoteBranchExists(branch: string, cwd?: string): Promise<boolean> {
+	// Fetch the remote branch info without downloading all objects
+	const { error } = await tryCatch(
+		execGit(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], cwd)
+	);
+	if (error) {
+		return false;
+	}
+	// If the command succeeded, check if we got any output (branch exists)
+	const { data } = await tryCatch(
+		execGit(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], cwd)
+	);
+	return data ? data.stdout.trim().length > 0 : false;
+}
+
 export async function createBranch(
 	branch: string,
 	baseBranch: string,
