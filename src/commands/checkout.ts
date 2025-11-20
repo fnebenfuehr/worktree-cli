@@ -4,17 +4,7 @@ import { executeHooks } from '@/hooks/executor';
 import { ValidationError } from '@/utils/errors';
 import { copyConfigFiles } from '@/utils/file-operations';
 import { getGitRoot } from '@/utils/git';
-import {
-	cancel,
-	intro,
-	isInteractive,
-	log,
-	note,
-	outro,
-	printWorktreeList,
-	promptBranchName,
-	spinner,
-} from '@/utils/prompts';
+import { intro, isInteractive, log, note, outro, promptBranchName, spinner } from '@/utils/prompts';
 import { isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export async function checkoutCommand(

@@ -11,6 +11,7 @@ import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
 	branchExists,
 	createBranch,
+	fetchRemoteBranch,
 	type WorktreeInfo as GitWorktreeInfo,
 	getCurrentBranch,
 	getDefaultBranch,
@@ -23,6 +24,7 @@ import {
 	isBranchMerged,
 	isWorktree,
 	remoteBranchExists,
+	setUpstreamTracking,
 } from '@/utils/git';
 import { branchToDirName } from '@/utils/naming';
 import { log } from '@/utils/prompts';
@@ -192,6 +194,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 	}
 
 	// 3. Check if branch exists on remote → create worktree from remote branch
+	// TODO: Support non-origin remotes via auto-detection or config (currently assumes origin)
 	const remoteExists = await remoteBranchExists(branch, gitRoot);
 	if (remoteExists) {
 		const dirName = branchToDirName(branch);
@@ -208,10 +211,11 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 			);
 		}
 
-		// Create local branch from remote branch
-		const defaultBranch = await getDefaultBranch(gitRoot);
-		await createBranch(branch, defaultBranch, gitRoot);
+		// Fetch and create local branch from remote branch with tracking
+		await fetchRemoteBranch(branch, gitRoot);
+		await createBranch(branch, `origin/${branch}`, gitRoot);
 		await gitAddWorktree(worktreeDir, branch, gitRoot);
+		await setUpstreamTracking(branch, `origin/${branch}`, gitRoot);
 
 		return {
 			path: worktreeDir,
