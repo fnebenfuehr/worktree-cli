@@ -58,11 +58,21 @@ afterEach(async () => {
 });
 
 describe('worktree.status()', () => {
-	test('detects worktree-enabled repository', async () => {
+	test('detects non-worktree repository', async () => {
+		const result = await worktree.status();
+
+		// Regular clone without additional worktrees should not be "enabled"
+		expect(result.enabled).toBe(false);
+		expect(result.count).toBe(1); // Only main worktree (itself)
+	});
+
+	test('detects worktree-enabled after creating worktrees', async () => {
+		// Create a worktree to enable worktree structure
+		await worktree.create('feature/test');
 		const result = await worktree.status();
 
 		expect(result.enabled).toBe(true);
-		expect(result.count).toBeGreaterThan(0);
+		expect(result.count).toBe(2);
 	});
 
 	test('returns correct worktree count', async () => {

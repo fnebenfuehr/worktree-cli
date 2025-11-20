@@ -97,6 +97,19 @@ export async function getMainWorktreePath(cwd?: string): Promise<string> {
 	return dirname(commonDir);
 }
 
+export async function hasWorktreeStructure(cwd?: string): Promise<boolean> {
+	const commonDir = await getGitCommonDir(cwd);
+	const worktreesDir = join(commonDir, 'worktrees');
+
+	// Check if worktrees directory exists and has entries
+	const { error, data } = await tryCatch(readdir(worktreesDir));
+	if (error) {
+		return false;
+	}
+
+	return data.length > 0;
+}
+
 export async function getCurrentBranch(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd));
 	if (error) {
