@@ -235,7 +235,7 @@ export async function createBranch(
 	baseBranch: string,
 	cwd?: string
 ): Promise<void> {
-	// Case 1: Remote ref (e.g., origin/feature) - use directly
+	// Remote ref (e.g., origin/feature) - use directly
 	if (baseBranch.startsWith('origin/')) {
 		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
 		if (branchError) {
@@ -248,7 +248,7 @@ export async function createBranch(
 		return;
 	}
 
-	// Case 2: Local branch exists - use directly
+	// Local branch exists - use directly
 	if (await branchExists(baseBranch, cwd)) {
 		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
 		if (branchError) {
@@ -261,7 +261,7 @@ export async function createBranch(
 		return;
 	}
 
-	// Case 3: Not local - fetch from origin and create
+	// Not local - fetch from origin and create
 	await fetchRemoteBranch(baseBranch, cwd);
 
 	const { error: branchError } = await tryCatch(
