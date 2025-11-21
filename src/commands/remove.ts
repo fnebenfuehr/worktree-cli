@@ -1,8 +1,9 @@
-import { loadAndValidateConfig } from '@/config/loader';
-import * as worktree from '@/core/worktree';
-import { executeHooks } from '@/hooks/executor';
+import { loadAndValidateConfig } from '@/lib/config';
+import { getMainWorktreePath } from '@/lib/git';
+import { executeHooks } from '@/lib/hooks';
+import * as worktree from '@/lib/worktree';
 import { GitError, ValidationError } from '@/utils/errors';
-import { getGitRoot, getMainWorktreePath } from '@/utils/git';
+import { getGitRoot } from '@/utils/git';
 import {
 	cancel,
 	intro,

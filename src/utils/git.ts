@@ -1,16 +1,18 @@
+/**
+ * Low-level git command primitives
+ */
+
 import { readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { $ } from 'bun';
+import type { GitCommandResult } from '@/lib/types';
 import { GitError, ValidationError } from '@/utils/errors';
 import { exists } from '@/utils/fs';
 import { tryCatch } from '@/utils/try-catch';
 
-export interface GitCommandResult {
-	stdout: string;
-	stderr: string;
-	exitCode: number;
-}
-
+/**
+ * Execute a git command
+ */
 export async function execGit(args: string[], cwd?: string): Promise<GitCommandResult> {
 	const { error, data } = await tryCatch(async () => {
 		const proc = cwd ? await $`git ${args}`.cwd(cwd).quiet() : await $`git ${args}`.quiet();
@@ -32,7 +34,10 @@ export async function execGit(args: string[], cwd?: string): Promise<GitCommandR
 	return data;
 }
 
-export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
+/**
+ * Find git repositories in subdirectories
+ */
+export async function findReposInSubdirs(dir: string): Promise<string[]> {
 	const entries = await readdir(dir, { withFileTypes: true });
 
 	const repos: string[] = [];
@@ -45,30 +50,18 @@ export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
 		}
 	}
 
-	if (repos.length === 0) {
-		return repos;
-	}
-
-	// Prioritize default branch worktree
-	const firstRepo = repos[0];
-	const { error, data } = await tryCatch(getDefaultBranch(firstRepo));
-	if (!error && data) {
-		const defaultBranchPath = join(dir, data);
-		if (repos.includes(defaultBranchPath)) {
-			// Move default branch to front
-			return [defaultBranchPath, ...repos.filter((r) => r !== defaultBranchPath)];
-		}
-	}
-
 	return repos;
 }
 
+/**
+ * Get the git repository root directory
+ */
 export async function getGitRoot(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--show-toplevel'], cwd));
 
 	if (error || !data) {
 		// Check if we can find a git repo in subdirectories
-		const repos = await findGitReposInSubdirs(cwd || process.cwd());
+		const repos = await findReposInSubdirs(cwd || process.cwd());
 		const firstRepo = repos[0];
 		if (firstRepo) {
 			return firstRepo;
@@ -83,6 +76,9 @@ export async function getGitRoot(cwd?: string): Promise<string> {
 	return data.stdout;
 }
 
+/**
+ * Get the git directory path
+ */
 export async function getGitDir(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--git-dir'], cwd));
 	if (error) {
@@ -95,10 +91,13 @@ export async function getGitDir(cwd?: string): Promise<string> {
 	return data.stdout;
 }
 
+/**
+ * Get the common git directory (shared across worktrees)
+ */
 export async function getGitCommonDir(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--git-common-dir'], cwd));
 	if (error) {
-		const [firstRepo] = await findGitReposInSubdirs(cwd || process.cwd());
+		const [firstRepo] = await findReposInSubdirs(cwd || process.cwd());
 		if (firstRepo) {
 			const { error: fallbackError, data: fallbackData } = await tryCatch(
 				execGit(['rev-parse', '--git-common-dir'], firstRepo)
@@ -117,25 +116,10 @@ export async function getGitCommonDir(cwd?: string): Promise<string> {
 	return data.stdout;
 }
 
-export async function getMainWorktreePath(cwd?: string): Promise<string> {
-	const commonDir = await getGitCommonDir(cwd);
-	return dirname(commonDir);
-}
-
-export async function hasWorktreeStructure(cwd?: string): Promise<boolean> {
-	const commonDir = await getGitCommonDir(cwd);
-	const worktreesDir = join(commonDir, 'worktrees');
-
-	// Check if worktrees directory exists and has entries
-	const { error, data } = await tryCatch(readdir(worktreesDir));
-	if (error) {
-		return false;
-	}
-
-	return data.length > 0;
-}
-
-export async function getCurrentBranch(cwd?: string): Promise<string> {
+/**
+ * Get the current branch name
+ */
+export async function gitGetCurrentBranch(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd));
 	if (error) {
 		throw new GitError('Could not determine current branch', 'git rev-parse --abbrev-ref HEAD', {
@@ -145,52 +129,18 @@ export async function getCurrentBranch(cwd?: string): Promise<string> {
 	return data.stdout;
 }
 
-export async function getDefaultBranch(cwd?: string): Promise<string> {
-	// Try 1: Get default branch from remote
-	const { error, data } = await tryCatch(execGit(['remote', 'show', 'origin'], cwd));
-
-	if (!error) {
-		const match = data.stdout.match(/HEAD branch:\s*(.+)/);
-		const branch = match?.[1]?.trim();
-		// Filter out git's "(unknown)" placeholder (happens with empty bare repos)
-		if (branch && branch !== '(unknown)') {
-			return branch;
-		}
-	}
-
-	// Try 2: Check if 'main' branch exists locally
-	if (await branchExists('main', cwd)) {
-		return 'main';
-	}
-
-	// Try 3: Check if 'master' branch exists locally
-	if (await branchExists('master', cwd)) {
-		return 'master';
-	}
-
-	// Try 4: Use current branch as fallback
-	const { error: currentError, data: currentData } = await tryCatch(
-		execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
-	);
-
-	if (!currentError && currentData.stdout) {
-		return currentData.stdout;
-	}
-
-	// If all strategies fail, throw
-	throw new GitError(
-		'Could not determine default branch. No remote configured, and neither main nor master branches exist locally.',
-		'git remote show origin'
-	);
-}
-
-export async function branchExists(branch: string, cwd?: string): Promise<boolean> {
+/**
+ * Check if a local branch exists
+ */
+export async function gitBranchExists(branch: string, cwd?: string): Promise<boolean> {
 	const { error } = await tryCatch(execGit(['show-ref', '--quiet', `refs/heads/${branch}`], cwd));
 	return error === null;
 }
 
-export async function remoteBranchExists(branch: string, cwd?: string): Promise<boolean> {
-	// Fetch the remote branch info without downloading all objects
+/**
+ * Check if a remote branch exists
+ */
+export async function gitRemoteBranchExists(branch: string, cwd?: string): Promise<boolean> {
 	const { error } = await tryCatch(
 		execGit(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], cwd)
 	);
@@ -204,7 +154,10 @@ export async function remoteBranchExists(branch: string, cwd?: string): Promise<
 	return data ? data.stdout.trim().length > 0 : false;
 }
 
-export async function fetchRemoteBranch(branch: string, cwd?: string): Promise<void> {
+/**
+ * Fetch a branch from remote
+ */
+export async function gitFetchRemoteBranch(branch: string, cwd?: string): Promise<void> {
 	const { error } = await tryCatch(execGit(['fetch', 'origin', branch], cwd));
 	if (error) {
 		throw new GitError(
@@ -215,7 +168,10 @@ export async function fetchRemoteBranch(branch: string, cwd?: string): Promise<v
 	}
 }
 
-export async function setUpstreamTracking(
+/**
+ * Set upstream tracking for a branch
+ */
+export async function gitSetUpstreamTracking(
 	branch: string,
 	upstream: string,
 	cwd?: string
@@ -230,7 +186,10 @@ export async function setUpstreamTracking(
 	}
 }
 
-export async function createBranch(
+/**
+ * Create a new branch from a base branch
+ */
+export async function gitCreateBranch(
 	branch: string,
 	baseBranch: string,
 	cwd?: string
@@ -249,7 +208,7 @@ export async function createBranch(
 	}
 
 	// Local branch exists - use directly
-	if (await branchExists(baseBranch, cwd)) {
+	if (await gitBranchExists(baseBranch, cwd)) {
 		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
 		if (branchError) {
 			throw new GitError(
@@ -262,7 +221,7 @@ export async function createBranch(
 	}
 
 	// Not local - fetch from origin and create
-	await fetchRemoteBranch(baseBranch, cwd);
+	await gitFetchRemoteBranch(baseBranch, cwd);
 
 	const { error: branchError } = await tryCatch(
 		execGit(['branch', branch, `origin/${baseBranch}`], cwd)
@@ -276,13 +235,10 @@ export async function createBranch(
 	}
 }
 
-export interface WorktreeInfo {
-	path: string;
-	commit: string;
-	branch: string;
-}
-
-export async function listWorktrees(cwd?: string): Promise<string> {
+/**
+ * List worktrees (raw output)
+ */
+export async function gitListWorktrees(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['worktree', 'list'], cwd));
 	if (error) {
 		throw new GitError('Failed to list worktrees', 'git worktree list', { cause: error });
@@ -290,40 +246,10 @@ export async function listWorktrees(cwd?: string): Promise<string> {
 	return data.stdout;
 }
 
-// Example input:
-// /path/to/main  abc1234 [main]
-// /path/to/feature  def5678 [feature/my-feature]
-const WORKTREE_LINE_PATTERN = /^(.+?)\s+([a-f0-9]+)(?:\s+[[(](.+?)[\])])?$/;
-
-export async function getWorktrees(cwd?: string): Promise<WorktreeInfo[]> {
-	const output = await listWorktrees(cwd);
-
-	if (!output) {
-		return [];
-	}
-
-	const worktrees: WorktreeInfo[] = [];
-	const lines = output.split('\n').filter((line) => line.trim());
-
-	for (const line of lines) {
-		const match = line.match(WORKTREE_LINE_PATTERN);
-
-		if (!match) continue;
-
-		const [, path, commit, branch] = match;
-		if (!path || !commit) continue;
-
-		worktrees.push({
-			path: path.trim(),
-			commit: commit.trim(),
-			branch: branch?.trim() || 'detached',
-		});
-	}
-
-	return worktrees;
-}
-
-export async function addWorktree(path: string, branch: string, cwd?: string): Promise<void> {
+/**
+ * Add a new worktree
+ */
+export async function gitAddWorktree(path: string, branch: string, cwd?: string): Promise<void> {
 	const { error } = await tryCatch(execGit(['worktree', 'add', path, branch], cwd));
 	if (error) {
 		throw new GitError(
@@ -334,7 +260,10 @@ export async function addWorktree(path: string, branch: string, cwd?: string): P
 	}
 }
 
-export async function removeWorktree(
+/**
+ * Remove a worktree
+ */
+export async function gitRemoveWorktree(
 	path: string,
 	cwd?: string,
 	options?: { force?: boolean }
@@ -355,7 +284,10 @@ export async function removeWorktree(
 	}
 }
 
-export async function isWorktree(cwd?: string): Promise<boolean> {
+/**
+ * Check if currently in a worktree (vs main repo)
+ */
+export async function gitIsWorktree(cwd?: string): Promise<boolean> {
 	const gitDir = await getGitDir(cwd);
 	const commonDir = await getGitCommonDir(cwd);
 
@@ -364,7 +296,10 @@ export async function isWorktree(cwd?: string): Promise<boolean> {
 	return gitDir !== commonDir;
 }
 
-export async function isBranchMerged(
+/**
+ * Check if a branch is merged into target branch
+ */
+export async function gitIsBranchMerged(
 	branch: string,
 	targetBranch: string,
 	cwd?: string
@@ -394,7 +329,10 @@ export async function isBranchMerged(
 	);
 }
 
-export async function hasUncommittedChanges(
+/**
+ * Check for uncommitted changes
+ */
+export async function gitHasUncommittedChanges(
 	cwd?: string,
 	options?: { includeUntracked?: boolean }
 ): Promise<boolean> {

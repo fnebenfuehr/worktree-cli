@@ -1,8 +1,7 @@
-import { loadAndValidateConfig } from '@/config/loader';
-import * as worktree from '@/core/worktree';
-import { executeHooks } from '@/hooks/executor';
+import { copyConfigFiles, loadAndValidateConfig } from '@/lib/config';
+import { executeHooks } from '@/lib/hooks';
+import * as worktree from '@/lib/worktree';
 import { ValidationError } from '@/utils/errors';
-import { copyConfigFiles } from '@/utils/file-operations';
 import { getGitRoot } from '@/utils/git';
 import { intro, isInteractive, log, note, outro, promptBranchName, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';

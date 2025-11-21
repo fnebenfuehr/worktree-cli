@@ -1,4 +1,4 @@
-import * as worktree from '@/core/worktree';
+import * as worktree from '@/lib/worktree';
 import { ValidationError } from '@/utils/errors';
 import {
 	cancel,

@@ -1,10 +1,10 @@
 import * as p from '@clack/prompts';
-import { loadAndValidateConfig } from '@/config/loader';
-import * as worktree from '@/core/worktree';
-import { executeHooks } from '@/hooks/executor';
+import { copyConfigFiles, loadAndValidateConfig } from '@/lib/config';
+import { getDefaultBranch, hasWorktreeStructure } from '@/lib/git';
+import { executeHooks } from '@/lib/hooks';
+import * as worktree from '@/lib/worktree';
 import { ValidationError } from '@/utils/errors';
-import { copyConfigFiles } from '@/utils/file-operations';
-import { getCurrentBranch, getDefaultBranch, getGitRoot, hasWorktreeStructure } from '@/utils/git';
+import { getGitRoot, gitGetCurrentBranch } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -42,7 +42,7 @@ export async function createCommand(
 	}
 
 	const defaultBranch = await getDefaultBranch(gitRoot);
-	const currentBranch = await getCurrentBranch(gitRoot);
+	const currentBranch = await gitGetCurrentBranch(gitRoot);
 
 	// Determine base branch for creating new worktree
 	let baseBranch = options?.from;

@@ -2,14 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { WorktreeConfig } from '@/config/loader';
-import {
-	buildWorktreeEnv,
-	executeCommand,
-	executeHooks,
-	getShellConfig,
-	type WorktreeEnv,
-} from '@/hooks/executor';
+import { buildWorktreeEnv, executeCommand, executeHooks, getShellConfig } from '@/lib/hooks';
+import type { WorktreeConfig, WorktreeEnv } from '@/lib/types';
 
 describe('getShellConfig', () => {
 	test('returns sh -c for Unix platforms', () => {

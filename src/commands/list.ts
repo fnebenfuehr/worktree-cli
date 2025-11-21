@@ -1,4 +1,4 @@
-import * as worktree from '@/core/worktree';
+import * as worktree from '@/lib/worktree';
 import { intro, log, outro, printWorktreeList } from '@/utils/prompts';
 
 export async function listCommand(): Promise<number> {
