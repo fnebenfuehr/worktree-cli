@@ -72,3 +72,10 @@ export class MergeStatusUnknownError extends GitError {
 		this.name = 'MergeStatusUnknownError';
 	}
 }
+
+export class GhCliError extends WorktreeError {
+	constructor(message: string, options?: ErrorOptions) {
+		super(message, 'GH_CLI_ERROR', 1, options);
+		this.name = 'GhCliError';
+	}
+}
