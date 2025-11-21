@@ -45,6 +45,21 @@ export async function findGitReposInSubdirs(dir: string): Promise<string[]> {
 		}
 	}
 
+	if (repos.length === 0) {
+		return repos;
+	}
+
+	// Prioritize default branch worktree
+	const firstRepo = repos[0];
+	const { error, data } = await tryCatch(getDefaultBranch(firstRepo));
+	if (!error && data) {
+		const defaultBranchPath = join(dir, data);
+		if (repos.includes(defaultBranchPath)) {
+			// Move default branch to front
+			return [defaultBranchPath, ...repos.filter((r) => r !== defaultBranchPath)];
+		}
+	}
+
 	return repos;
 }
 
@@ -83,6 +98,16 @@ export async function getGitDir(cwd?: string): Promise<string> {
 export async function getGitCommonDir(cwd?: string): Promise<string> {
 	const { error, data } = await tryCatch(execGit(['rev-parse', '--git-common-dir'], cwd));
 	if (error) {
+		const [firstRepo] = await findGitReposInSubdirs(cwd || process.cwd());
+		if (firstRepo) {
+			const { error: fallbackError, data: fallbackData } = await tryCatch(
+				execGit(['rev-parse', '--git-common-dir'], firstRepo)
+			);
+			if (!fallbackError && fallbackData) {
+				return fallbackData.stdout;
+			}
+		}
+
 		throw new GitError(
 			'Could not determine common git directory',
 			'git rev-parse --git-common-dir',
