@@ -14,12 +14,23 @@ Create a `.worktreerc` file in your project root:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/src/config/schema.json",
   "post_create": ["bun install"],
   "copy_files": [".env"]
 }
 ```
 
 Now when you create a worktree, dependencies install automatically and `.env` is copied.
+
+### IDE Support
+
+Add the `$schema` property to enable autocomplete and validation in your editor:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/src/config/schema.json"
+}
+```
 
 ## Configuration
 
@@ -156,6 +167,29 @@ worktree create feature/test --verbose
 - Failed commands show a warning but don't stop execution
 - Hooks are optional (no config = no hooks)
 - Config loaded from main worktree root (where `.git` lives)
+
+## Environment Variables
+
+Hooks receive these environment variables for context:
+
+| Variable | Description |
+|----------|-------------|
+| `WORKTREE_PATH` | Path to the worktree being operated on |
+| `WORKTREE_BRANCH` | Branch name of the worktree |
+| `WORKTREE_MAIN_PATH` | Path to the main worktree |
+| `WORKTREE_PROJECT` | Project/repository name |
+
+### Example Usage
+
+**.worktreerc**
+```json
+{
+  "post_create": ["echo \"Created worktree at $WORKTREE_PATH for branch $WORKTREE_BRANCH\""],
+  "pre_remove": ["echo \"Cleaning up $WORKTREE_PROJECT worktree...\""]
+}
+```
+
+**Note**: For `post_remove` hooks, `WORKTREE_PATH` contains the path of the removed worktree (for reference), while the hook runs in `WORKTREE_MAIN_PATH`.
 
 ## Best Practices
 

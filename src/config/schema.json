@@ -1,6 +1,6 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"$id": "https://github.com/fnebenfuehr/worktree-cli/blob/main/src/config/schema.json",
+	"$id": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/src/config/schema.json",
 	"title": "Worktree CLI Configuration",
 	"description": "Configuration schema for .worktreerc files used by worktree-cli",
 	"type": "object",

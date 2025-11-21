@@ -71,7 +71,7 @@ export async function removeCommand(
 
 	if (!targetWorktree) {
 		throw new ValidationError(
-			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
+			`No worktree found for branch '${branch}'. Run \`worktree list\` to see active worktrees.`
 		);
 	}
 
@@ -79,11 +79,18 @@ export async function removeCommand(
 
 	const config = await loadAndValidateConfig(gitRoot);
 
+	const env = {
+		worktreePath,
+		branch,
+		mainPath: mainWorktreePath,
+	};
+
 	if (config) {
 		await executeHooks(config, 'pre_remove', {
 			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			env,
 		});
 	}
 
@@ -125,6 +132,7 @@ export async function removeCommand(
 			cwd: mainWorktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			env,
 		});
 	}
 
