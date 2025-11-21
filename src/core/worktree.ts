@@ -60,8 +60,6 @@ export async function status(): Promise<StatusResult> {
 	const gitRoot = await getGitRoot();
 	const worktrees = await gitGetWorktrees(gitRoot);
 	const defaultBranch = await getDefaultBranch(gitRoot);
-
-	// enabled = repo has worktree structure (git common dir has worktrees/ with entries)
 	const enabled = await hasWorktreeStructure(gitRoot);
 
 	return {
