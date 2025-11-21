@@ -14,6 +14,7 @@ import { mcpConfigCommand, mcpStartCommand, mcpTestCommand } from '@/commands/mc
 import { prCommand } from '@/commands/pr';
 import { removeCommand } from '@/commands/remove';
 import { setupCommand } from '@/commands/setup';
+import { statusCommand } from '@/commands/status';
 import { switchCommand } from '@/commands/switch';
 import { UserCancelledError, WorktreeError } from '@/utils/errors';
 import { log } from '@/utils/prompts';
@@ -135,6 +136,11 @@ program
 	.command('list')
 	.description('List all active worktrees')
 	.action(() => handleCommandError(() => listCommand())());
+
+program
+	.command('status')
+	.description('Show worktree status and configuration')
+	.action(() => handleCommandError(() => statusCommand())());
 
 program
 	.command('switch [branch]')

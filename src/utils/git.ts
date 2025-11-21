@@ -348,3 +348,39 @@ export async function gitHasUncommittedChanges(
 
 	return data.stdout.trim().length > 0;
 }
+
+/**
+ * Get ahead/behind status for a branch relative to its upstream
+ */
+export async function gitGetTrackingStatus(
+	branch: string,
+	cwd?: string
+): Promise<{ ahead: number; behind: number; upstream?: string } | null> {
+	// Get the upstream branch
+	const { error: upstreamError, data: upstreamData } = await tryCatch(
+		execGit(['rev-parse', '--abbrev-ref', `${branch}@{upstream}`], cwd)
+	);
+
+	if (upstreamError || !upstreamData?.stdout) {
+		return null; // No upstream configured
+	}
+
+	const upstream = upstreamData.stdout;
+
+	// Get ahead/behind counts
+	const { error: countError, data: countData } = await tryCatch(
+		execGit(['rev-list', '--left-right', '--count', `${branch}...${upstream}`], cwd)
+	);
+
+	if (countError || !countData?.stdout) {
+		return null;
+	}
+
+	const [ahead, behind] = countData.stdout.split('\t').map((n) => Number.parseInt(n, 10));
+
+	return {
+		ahead: ahead || 0,
+		behind: behind || 0,
+		upstream,
+	};
+}
