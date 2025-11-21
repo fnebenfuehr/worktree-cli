@@ -3,7 +3,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { WorktreeConfig } from '@/config/loader';
-import { executeCommand, executeHooks, getShellConfig } from '@/hooks/executor';
+import {
+	buildWorktreeEnv,
+	executeCommand,
+	executeHooks,
+	getShellConfig,
+	type WorktreeEnvContext,
+} from '@/hooks/executor';
 
 describe('getShellConfig', () => {
 	test('returns sh -c for Unix platforms', () => {
@@ -216,5 +222,126 @@ describe('hook execution', () => {
 
 		console.log = originalLog;
 		expect(loggedOutput).toBe('');
+	});
+});
+
+describe('buildWorktreeEnv', () => {
+	test('builds correct environment variables', () => {
+		const context: WorktreeEnvContext = {
+			worktreePath: '/path/to/worktree',
+			branch: 'feature/test',
+			mainPath: '/path/to/main',
+		};
+
+		const env = buildWorktreeEnv(context);
+
+		expect(env.WORKTREE_PATH).toBe('/path/to/worktree');
+		expect(env.WORKTREE_BRANCH).toBe('feature/test');
+		expect(env.WORKTREE_MAIN_PATH).toBe('/path/to/main');
+		expect(env.WORKTREE_PROJECT).toBe('main');
+	});
+
+	test('extracts project name from main path', () => {
+		const context: WorktreeEnvContext = {
+			worktreePath: '/home/user/repos/my-project/.worktrees/feature',
+			branch: 'feature/awesome',
+			mainPath: '/home/user/repos/my-project',
+		};
+
+		const env = buildWorktreeEnv(context);
+
+		expect(env.WORKTREE_PROJECT).toBe('my-project');
+	});
+});
+
+describe('environment variables in hooks', () => {
+	let testDir: string;
+
+	beforeEach(async () => {
+		testDir = await mkdtemp(join(tmpdir(), 'worktree-env-test-'));
+	});
+
+	afterEach(async () => {
+		await rm(testDir, { recursive: true, force: true });
+	});
+
+	test('executeCommand passes environment variables', async () => {
+		const outputFile = join(testDir, 'env-output.txt');
+		const env = {
+			WORKTREE_PATH: '/test/path',
+			WORKTREE_BRANCH: 'test-branch',
+		};
+
+		await executeCommand(`echo "$WORKTREE_PATH|$WORKTREE_BRANCH" > ${outputFile}`, testDir, env);
+
+		const output = await Bun.file(outputFile).text();
+		expect(output.trim()).toBe('/test/path|test-branch');
+	});
+
+	test('executeHooks passes worktree env context', async () => {
+		const outputFile = join(testDir, 'hook-env.txt');
+		const config: WorktreeConfig = {
+			post_create: [
+				`echo "$WORKTREE_PATH|$WORKTREE_BRANCH|$WORKTREE_MAIN_PATH|$WORKTREE_PROJECT" > ${outputFile}`,
+			],
+		};
+
+		const envContext: WorktreeEnvContext = {
+			worktreePath: '/my/worktree',
+			branch: 'feat/env-test',
+			mainPath: '/my/main-repo',
+		};
+
+		await executeHooks(config, 'post_create', {
+			cwd: testDir,
+			env: envContext,
+		});
+
+		const output = await Bun.file(outputFile).text();
+		expect(output.trim()).toBe('/my/worktree|feat/env-test|/my/main-repo|main-repo');
+	});
+
+	test('hooks can access all four environment variables', async () => {
+		const outputFile = join(testDir, 'all-env.txt');
+		const config: WorktreeConfig = {
+			post_create: [
+				`test -n "$WORKTREE_PATH" && test -n "$WORKTREE_BRANCH" && test -n "$WORKTREE_MAIN_PATH" && test -n "$WORKTREE_PROJECT" && echo "all-present" > ${outputFile}`,
+			],
+		};
+
+		const envContext: WorktreeEnvContext = {
+			worktreePath: '/path/wt',
+			branch: 'branch',
+			mainPath: '/path/main',
+		};
+
+		await executeHooks(config, 'post_create', {
+			cwd: testDir,
+			env: envContext,
+		});
+
+		const output = await Bun.file(outputFile).text();
+		expect(output.trim()).toBe('all-present');
+	});
+
+	test('preserves existing shell environment', async () => {
+		const outputFile = join(testDir, 'preserve-env.txt');
+		const config: WorktreeConfig = {
+			post_create: [`echo "$HOME" > ${outputFile}`],
+		};
+
+		const envContext: WorktreeEnvContext = {
+			worktreePath: '/test',
+			branch: 'test',
+			mainPath: '/main',
+		};
+
+		await executeHooks(config, 'post_create', {
+			cwd: testDir,
+			env: envContext,
+		});
+
+		const output = await Bun.file(outputFile).text();
+		expect(output.trim()).toBe(process.env.HOME);
 	});
 });

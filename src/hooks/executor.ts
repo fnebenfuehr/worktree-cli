@@ -1,9 +1,16 @@
+import { basename } from 'node:path';
 import { $ } from 'bun';
 import type { WorktreeConfig } from '@/config/loader';
 import { log, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 
 export type HookType = 'post_create' | 'pre_remove' | 'post_remove';
+
+export interface WorktreeEnvContext {
+	worktreePath: string;
+	branch: string;
+	mainPath: string;
+}
 
 interface ShellConfig {
 	shell: string;
@@ -24,10 +31,24 @@ interface CommandResult {
 	stderr: Buffer;
 }
 
-export async function executeCommand(command: string, cwd: string): Promise<CommandResult> {
+export function buildWorktreeEnv(context: WorktreeEnvContext): Record<string, string> {
+	return {
+		WORKTREE_PATH: context.worktreePath,
+		WORKTREE_BRANCH: context.branch,
+		WORKTREE_MAIN_PATH: context.mainPath,
+		WORKTREE_PROJECT: basename(context.mainPath),
+	};
+}
+
+export async function executeCommand(
+	command: string,
+	cwd: string,
+	env?: Record<string, string>
+): Promise<CommandResult> {
 	const { shell, flag } = getShellConfig();
+	const mergedEnv = env ? { ...process.env, ...env } : process.env;
 	const { error, data } = await tryCatch(async () => {
-		const result = await $`${shell} ${flag} ${command}`.cwd(cwd).quiet();
+		const result = await $`${shell} ${flag} ${command}`.cwd(cwd).env(mergedEnv).quiet();
 		return {
 			exitCode: result.exitCode,
 			stdout: result.stdout,
@@ -55,6 +76,7 @@ interface ExecuteHooksOptions {
 	cwd: string;
 	skipHooks?: boolean;
 	verbose?: boolean;
+	env?: WorktreeEnvContext;
 }
 
 export async function executeHooks(
@@ -73,6 +95,7 @@ export async function executeHooks(
 
 	const { shell, flag } = getShellConfig();
 	const shellContext = `${shell} ${flag}`;
+	const envVars = options.env ? buildWorktreeEnv(options.env) : undefined;
 
 	for (let i = 0; i < commands.length; i++) {
 		const command = commands[i];
@@ -81,7 +104,7 @@ export async function executeHooks(
 		const s = spinner();
 		s.start(`Running: ${command} (${i + 1}/${commands.length})`);
 
-		const { error, data: result } = await tryCatch(executeCommand(command, options.cwd));
+		const { error, data: result } = await tryCatch(executeCommand(command, options.cwd, envVars));
 
 		if (error) {
 			s.stop(`Error: ${command}`);
