@@ -8,7 +8,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { $ } from 'bun';
-import * as worktree from '@/core/worktree';
+import * as worktree from '@/lib/worktree';
 import {
 	FileSystemError,
 	GitError,

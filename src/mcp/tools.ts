@@ -1,4 +1,13 @@
-import * as worktree from '@/core/worktree';
+import type {
+	CheckoutResult,
+	CreateResult,
+	RemoveResult,
+	SetupResult,
+	StatusResult,
+	SwitchResult,
+	WorktreeInfo,
+} from '@/lib/types';
+import * as worktree from '@/lib/worktree';
 import {
 	FileSystemError,
 	GitError,
@@ -70,13 +79,13 @@ export async function handleToolError<T>(fn: () => Promise<T>): Promise<ToolResu
 	return { success: true, data };
 }
 
-export async function worktreeStatus(): Promise<ToolResult<worktree.StatusResult>> {
+export async function worktreeStatus(): Promise<ToolResult<StatusResult>> {
 	return handleToolError(async () => {
 		return await worktree.status();
 	});
 }
 
-export async function worktreeList(): Promise<ToolResult<worktree.WorktreeInfo[]>> {
+export async function worktreeList(): Promise<ToolResult<WorktreeInfo[]>> {
 	return handleToolError(async () => {
 		return await worktree.list();
 	});
@@ -85,13 +94,13 @@ export async function worktreeList(): Promise<ToolResult<worktree.WorktreeInfo[]
 export async function worktreeCreate(
 	branch: string,
 	baseBranch?: string
-): Promise<ToolResult<worktree.CreateResult>> {
+): Promise<ToolResult<CreateResult>> {
 	return handleToolError(async () => {
 		return await worktree.create(branch, baseBranch);
 	});
 }
 
-export async function worktreeSwitch(branch: string): Promise<ToolResult<worktree.SwitchResult>> {
+export async function worktreeSwitch(branch: string): Promise<ToolResult<SwitchResult>> {
 	return handleToolError(async () => {
 		return await worktree.switchTo(branch);
 	});
@@ -100,21 +109,19 @@ export async function worktreeSwitch(branch: string): Promise<ToolResult<worktre
 export async function worktreeRemove(
 	identifier: string,
 	force = false
-): Promise<ToolResult<worktree.RemoveResult>> {
+): Promise<ToolResult<RemoveResult>> {
 	return handleToolError(async () => {
 		return await worktree.remove(identifier, force);
 	});
 }
 
-export async function worktreeSetup(targetDir?: string): Promise<ToolResult<worktree.SetupResult>> {
+export async function worktreeSetup(targetDir?: string): Promise<ToolResult<SetupResult>> {
 	return handleToolError(async () => {
 		return await worktree.setup(targetDir);
 	});
 }
 
-export async function worktreeCheckout(
-	branch: string
-): Promise<ToolResult<worktree.CheckoutResult>> {
+export async function worktreeCheckout(branch: string): Promise<ToolResult<CheckoutResult>> {
 	return handleToolError(async () => {
 		return await worktree.checkout(branch);
 	});

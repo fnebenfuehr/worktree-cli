@@ -14,7 +14,7 @@ Create a `.worktreerc` file in your project root:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/src/config/schema.json",
+  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/schema.json",
   "post_create": ["bun install"],
   "copy_files": [".env"]
 }
@@ -28,7 +28,7 @@ Add the `$schema` property to enable autocomplete and validation in your editor:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/src/config/schema.json"
+  "$schema": "https://raw.githubusercontent.com/fnebenfuehr/worktree-cli/main/schema.json"
 }
 ```
 

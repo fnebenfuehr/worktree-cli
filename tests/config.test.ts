@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { validateConfig, type WorktreeConfig } from '@/config/loader';
+import { validateConfig } from '@/lib/config';
+import type { WorktreeConfig } from '@/lib/types';
 
 describe('config validation', () => {
 	describe('validateConfig', () => {

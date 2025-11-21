@@ -1,9 +1,9 @@
-import * as worktree from '@/core/worktree';
-import { getCurrentBranch } from '@/utils/git';
+import * as worktree from '@/lib/worktree';
+import { gitGetCurrentBranch } from '@/utils/git';
 import { cancel, intro, isInteractive, outro, promptConfirm, spinner } from '@/utils/prompts';
 
 export async function setupCommand(): Promise<number> {
-	const currentBranch = await getCurrentBranch();
+	const currentBranch = await gitGetCurrentBranch();
 
 	if (isInteractive()) {
 		intro('Setup Worktree Structure');

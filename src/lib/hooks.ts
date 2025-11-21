@@ -1,16 +1,8 @@
 import { basename } from 'node:path';
 import { $ } from 'bun';
-import type { WorktreeConfig } from '@/config/loader';
+import type { HookType, WorktreeConfig, WorktreeEnv } from '@/lib/types';
 import { log, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
-
-export type HookType = 'post_create' | 'pre_remove' | 'post_remove';
-
-export interface WorktreeEnv {
-	worktreePath: string;
-	branch: string;
-	mainPath: string;
-}
 
 interface ShellConfig {
 	shell: string;

@@ -1,4 +1,4 @@
 {
-	"$schema": "https://github.com/fnebenfuehr/worktree-cli/blob/main/src/config/schema.json",
+	"$schema": "https://github.com/fnebenfuehr/worktree-cli/blob/main/schema.json",
 	"post_create": ["bun install"]
 }

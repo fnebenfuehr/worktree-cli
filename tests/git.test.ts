@@ -16,14 +16,16 @@ describe('git utilities', () => {
 		});
 	});
 
-	describe('fetchRemoteBranch', () => {
+	describe('gitFetchRemoteBranch', () => {
 		test('throws GitError when fetching non-existent branch', async () => {
-			await expect(git.fetchRemoteBranch('non-existent-branch-xyz-123')).rejects.toThrow(GitError);
+			await expect(git.gitFetchRemoteBranch('non-existent-branch-xyz-123')).rejects.toThrow(
+				GitError
+			);
 		});
 
 		test('error message contains branch name', async () => {
 			try {
-				await git.fetchRemoteBranch('non-existent-branch-xyz-123');
+				await git.gitFetchRemoteBranch('non-existent-branch-xyz-123');
 			} catch (error) {
 				expect(error).toBeInstanceOf(GitError);
 				expect((error as GitError).message).toContain('non-existent-branch-xyz-123');
@@ -31,16 +33,16 @@ describe('git utilities', () => {
 		});
 	});
 
-	describe('setUpstreamTracking', () => {
+	describe('gitSetUpstreamTracking', () => {
 		test('throws GitError for non-existent branch', async () => {
 			await expect(
-				git.setUpstreamTracking('non-existent-branch', 'origin/non-existent')
+				git.gitSetUpstreamTracking('non-existent-branch', 'origin/non-existent')
 			).rejects.toThrow(GitError);
 		});
 
 		test('error message contains branch and upstream names', async () => {
 			try {
-				await git.setUpstreamTracking('test-branch', 'origin/test-upstream');
+				await git.gitSetUpstreamTracking('test-branch', 'origin/test-upstream');
 			} catch (error) {
 				expect(error).toBeInstanceOf(GitError);
 				expect((error as GitError).message).toContain('test-branch');
@@ -49,12 +51,12 @@ describe('git utilities', () => {
 		});
 	});
 
-	describe('createBranch', () => {
+	describe('gitCreateBranch', () => {
 		test('handles origin/ prefix in baseBranch correctly', async () => {
 			// This should fail because origin/non-existent doesn't exist,
 			// but it should try to use it directly (not fetch origin/origin/non-existent)
 			try {
-				await git.createBranch('new-branch', 'origin/non-existent-ref');
+				await git.gitCreateBranch('new-branch', 'origin/non-existent-ref');
 			} catch (error) {
 				expect(error).toBeInstanceOf(GitError);
 				// Verify error message shows the correct ref (not origin/origin/)

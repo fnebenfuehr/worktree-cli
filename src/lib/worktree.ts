@@ -1,5 +1,15 @@
 import { dirname, join } from 'node:path';
 import { $ } from 'bun';
+import { getDefaultBranch, getWorktrees, hasWorktreeStructure } from '@/lib/git';
+import type {
+	CheckoutResult,
+	CreateResult,
+	RemoveResult,
+	SetupResult,
+	StatusResult,
+	SwitchResult,
+	WorktreeInfo,
+} from '@/lib/types';
 import {
 	FileSystemError,
 	GitError,
@@ -9,67 +19,27 @@ import {
 } from '@/utils/errors';
 import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
-	branchExists,
-	createBranch,
-	fetchRemoteBranch,
-	type WorktreeInfo as GitWorktreeInfo,
-	getCurrentBranch,
-	getDefaultBranch,
 	getGitRoot,
-	addWorktree as gitAddWorktree,
-	getWorktrees as gitGetWorktrees,
-	removeWorktree as gitRemoveWorktree,
-	hasUncommittedChanges,
-	hasWorktreeStructure,
-	isBranchMerged,
-	isWorktree,
-	remoteBranchExists,
-	setUpstreamTracking,
+	gitAddWorktree,
+	gitBranchExists,
+	gitCreateBranch,
+	gitFetchRemoteBranch,
+	gitGetCurrentBranch,
+	gitHasUncommittedChanges,
+	gitIsBranchMerged,
+	gitIsWorktree,
+	gitRemoteBranchExists,
+	gitRemoveWorktree,
+	gitSetUpstreamTracking,
 } from '@/utils/git';
 import { branchToDirName } from '@/utils/naming';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 import { isSafePath, isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
-export type WorktreeInfo = GitWorktreeInfo;
-
-export interface StatusResult {
-	enabled: boolean;
-	count: number;
-	defaultBranch?: string;
-}
-
-export interface CreateResult {
-	path: string;
-	branch: string;
-	created: boolean;
-}
-
-export interface SwitchResult {
-	path: string;
-	branch: string;
-}
-
-export interface CheckoutResult {
-	path: string;
-	branch: string;
-	action: 'switched' | 'created';
-	created?: boolean; // true if branch was newly created
-	source?: 'local' | 'remote'; // where the branch came from
-}
-
-export interface RemoveResult {
-	path: string;
-}
-
-export interface SetupResult {
-	repositoryPath: string;
-	worktreePath: string;
-}
-
 export async function status(): Promise<StatusResult> {
 	const gitRoot = await getGitRoot();
-	const worktrees = await gitGetWorktrees(gitRoot);
+	const worktrees = await getWorktrees(gitRoot);
 	const defaultBranch = await getDefaultBranch(gitRoot);
 	const enabled = await hasWorktreeStructure(gitRoot);
 
@@ -80,9 +50,9 @@ export async function status(): Promise<StatusResult> {
 	};
 }
 
-export async function list(): Promise<GitWorktreeInfo[]> {
+export async function list(): Promise<WorktreeInfo[]> {
 	const gitRoot = await getGitRoot();
-	return gitGetWorktrees(gitRoot);
+	return getWorktrees(gitRoot);
 }
 
 export async function create(branch: string, baseBranch?: string): Promise<CreateResult> {
@@ -108,10 +78,10 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 	}
 
 	const base = baseBranch || (await getDefaultBranch(gitRoot));
-	const branchAlreadyExists = await branchExists(branch, gitRoot);
+	const branchAlreadyExists = await gitBranchExists(branch, gitRoot);
 
 	if (!branchAlreadyExists) {
-		await createBranch(branch, base, gitRoot);
+		await gitCreateBranch(branch, base, gitRoot);
 	}
 
 	await gitAddWorktree(worktreeDir, branch, gitRoot);
@@ -125,7 +95,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 
 export async function switchTo(branch: string): Promise<SwitchResult> {
 	const gitRoot = await getGitRoot();
-	const worktrees = await gitGetWorktrees(gitRoot);
+	const worktrees = await getWorktrees(gitRoot);
 
 	if (worktrees.length === 0) {
 		throw new FileSystemError(
@@ -155,7 +125,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 	}
 
 	const gitRoot = await getGitRoot();
-	const worktrees = await gitGetWorktrees(gitRoot);
+	const worktrees = await getWorktrees(gitRoot);
 
 	// Existing worktree → switch
 	const existingWorktree = worktrees.find((wt) => wt.branch === branch);
@@ -168,7 +138,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 	}
 
 	// Local branch → create worktree
-	const localExists = await branchExists(branch, gitRoot);
+	const localExists = await gitBranchExists(branch, gitRoot);
 	if (localExists) {
 		const dirName = branchToDirName(branch);
 		const projectRoot = dirname(gitRoot);
@@ -197,7 +167,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 
 	// Remote branch → fetch and create worktree
 	// TODO: Support non-origin remotes
-	const remoteExists = await remoteBranchExists(branch, gitRoot);
+	const remoteExists = await gitRemoteBranchExists(branch, gitRoot);
 	if (remoteExists) {
 		const dirName = branchToDirName(branch);
 		const projectRoot = dirname(gitRoot);
@@ -213,10 +183,10 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 			);
 		}
 
-		await fetchRemoteBranch(branch, gitRoot);
-		await createBranch(branch, `origin/${branch}`, gitRoot);
+		await gitFetchRemoteBranch(branch, gitRoot);
+		await gitCreateBranch(branch, `origin/${branch}`, gitRoot);
 		await gitAddWorktree(worktreeDir, branch, gitRoot);
-		await setUpstreamTracking(branch, `origin/${branch}`, gitRoot);
+		await gitSetUpstreamTracking(branch, `origin/${branch}`, gitRoot);
 
 		return {
 			path: worktreeDir,
@@ -258,13 +228,13 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 
 	if (!force) {
 		// Check for uncommitted changes (includes both tracked changes and untracked files)
-		if (await hasUncommittedChanges(worktreeDir, { includeUntracked: true })) {
+		if (await gitHasUncommittedChanges(worktreeDir, { includeUntracked: true })) {
 			throw new UncommittedChangesError(identifier);
 		}
 
 		// Check if branch is merged
 		const defaultBranch = await getDefaultBranch(gitRoot);
-		const merged = await isBranchMerged(identifier, defaultBranch, gitRoot);
+		const merged = await gitIsBranchMerged(identifier, defaultBranch, gitRoot);
 
 		if (!merged) {
 			throw new UnmergedBranchError(identifier, defaultBranch);
@@ -302,23 +272,23 @@ async function rollbackSetup(tempDir: string, itemsToRollback: readonly string[]
 }
 
 export async function setup(targetDir?: string): Promise<SetupResult> {
-	if (await isWorktree()) {
+	if (await gitIsWorktree()) {
 		throw new ValidationError(
 			'Already in a worktree directory. Worktree structure already set up - no setup needed.'
 		);
 	}
 
 	// Verify we're at the repository root (not a subdirectory)
-	// isWorktree() only checks if in a worktree vs main repo, not if at root
+	// gitIsWorktree() only checks if in a worktree vs main repo, not if at root
 	if (!(await exists('.git'))) {
 		throw new ValidationError(
 			'Not in a git repository root (no .git folder found). Run this command from the root of your cloned repository.'
 		);
 	}
 
-	const currentBranch = await getCurrentBranch();
+	const currentBranch = await gitGetCurrentBranch();
 
-	if (await hasUncommittedChanges()) {
+	if (await gitHasUncommittedChanges()) {
 		throw new UncommittedChangesError(currentBranch);
 	}
 

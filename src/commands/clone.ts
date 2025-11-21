@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { $ } from 'bun';
 import { FileSystemError, GitError, ValidationError, WorktreeError } from '@/utils/errors';
 import { move } from '@/utils/fs';
-import { getCurrentBranch } from '@/utils/git';
+import { gitGetCurrentBranch } from '@/utils/git';
 import { extractRepoName } from '@/utils/naming';
 import { intro, isInteractive, outro, promptGitUrl, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
@@ -54,7 +54,7 @@ export async function cloneCommand(gitUrl?: string): Promise<number> {
 		}
 
 		s.message('Setting up worktree structure');
-		const defaultBranch = await getCurrentBranch(tempClone);
+		const defaultBranch = await gitGetCurrentBranch(tempClone);
 
 		if (!defaultBranch) {
 			s.stop('Setup failed');
