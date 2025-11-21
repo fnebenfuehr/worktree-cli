@@ -90,7 +90,6 @@ export async function writeConfig(
 ): Promise<void> {
 	const configPath = join(gitRoot, '.worktree.json');
 
-	// Load existing config to merge
 	let existingConfig: WorktreeConfig = {};
 	if (await exists(configPath)) {
 		const loaded = await loadConfig(gitRoot);
@@ -99,13 +98,11 @@ export async function writeConfig(
 		}
 	}
 
-	// Merge configs (new values override existing)
 	const mergedConfig: WorktreeConfig = {
 		...existingConfig,
 		...newConfig,
 	};
 
-	// Write to file
 	const content = JSON.stringify(mergedConfig, null, '\t');
 	await writeFile(configPath, `${content}\n`, 'utf-8');
 }
