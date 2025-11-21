@@ -1,4 +1,5 @@
 {
+  "$schema": "https://github.com/fnebenfuehr/worktree-cli/blob/main/src/config/schema.json",
   "post_create": [
     "bun install",
     "bun run db:migrate"
