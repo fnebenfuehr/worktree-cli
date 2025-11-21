@@ -91,6 +91,11 @@ export async function createCommand(
 			cwd: result.path,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			env: {
+				worktreePath: result.path,
+				branch: result.branch,
+				mainPath: gitRoot,
+			},
 		});
 	}
 
