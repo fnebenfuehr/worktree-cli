@@ -1,5 +1,6 @@
 import { dirname, join } from 'node:path';
 import { $ } from 'bun';
+import { ensureConfig, writeConfig } from '@/lib/config';
 import { getDefaultBranch, getWorktrees, hasWorktreeStructure } from '@/lib/git';
 import type {
 	CheckoutResult,
@@ -87,6 +88,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 	}
 
 	await gitAddWorktree(worktreeDir, branch, gitRoot);
+	await ensureConfig(gitRoot, base);
 
 	return {
 		path: worktreeDir,
@@ -157,6 +159,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 		}
 
 		await gitAddWorktree(worktreeDir, branch, gitRoot);
+		await ensureConfig(gitRoot, await getDefaultBranch(gitRoot));
 
 		return {
 			path: worktreeDir,
@@ -189,6 +192,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 		await gitCreateBranch(branch, `origin/${branch}`, gitRoot);
 		await gitAddWorktree(worktreeDir, branch, gitRoot);
 		await gitSetUpstreamTracking(branch, `origin/${branch}`, gitRoot);
+		await ensureConfig(gitRoot, await getDefaultBranch(gitRoot));
 
 		return {
 			path: worktreeDir,
@@ -411,9 +415,12 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 			throw moveError;
 		}
 
+		const worktreePath = join(process.cwd(), targetDirName);
+		await writeConfig(worktreePath, { defaultBranch: currentBranch });
+
 		return {
 			repositoryPath: process.cwd(),
-			worktreePath: join(process.cwd(), targetDirName),
+			worktreePath,
 		};
 	} catch (error) {
 		const { error: rollbackError } = await tryCatch(rollbackSetup(tempDir, itemsToRollback));
