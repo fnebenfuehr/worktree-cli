@@ -19,6 +19,7 @@ import {
 	getWorktrees as gitGetWorktrees,
 	removeWorktree as gitRemoveWorktree,
 	hasUncommittedChanges,
+	hasWorktreeStructure,
 	isBranchMerged,
 	isWorktree,
 } from '@/utils/git';
@@ -59,9 +60,7 @@ export async function status(): Promise<StatusResult> {
 	const gitRoot = await getGitRoot();
 	const worktrees = await gitGetWorktrees(gitRoot);
 	const defaultBranch = await getDefaultBranch(gitRoot);
-
-	// enabled = repo has worktree structure (worktrees exist)
-	const enabled = worktrees.length > 0;
+	const enabled = await hasWorktreeStructure(gitRoot);
 
 	return {
 		enabled,

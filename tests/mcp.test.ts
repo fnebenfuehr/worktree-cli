@@ -58,13 +58,26 @@ afterEach(async () => {
 });
 
 describe('MCP worktreeStatus', () => {
-	test('returns success with status data', async () => {
+	test('returns success with status data for regular repo', async () => {
+		const result = await worktreeStatus();
+
+		expect(result.success).toBe(true);
+		if (result.success) {
+			// Regular clone without worktrees should be disabled
+			expect(result.data.enabled).toBe(false);
+			expect(result.data.count).toBe(1);
+		}
+	});
+
+	test('returns enabled true after creating worktrees', async () => {
+		// Create a worktree to enable structure
+		await worktreeCreate('feature/test');
 		const result = await worktreeStatus();
 
 		expect(result.success).toBe(true);
 		if (result.success) {
 			expect(result.data.enabled).toBe(true);
-			expect(result.data.count).toBeGreaterThan(0);
+			expect(result.data.count).toBe(2);
 		}
 	});
 
