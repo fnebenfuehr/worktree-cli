@@ -1,6 +1,7 @@
 import type {
 	CheckoutResult,
 	CreateResult,
+	PrCheckoutResult,
 	RemoveResult,
 	SetupResult,
 	StatusResult,
@@ -10,6 +11,7 @@ import type {
 import * as worktree from '@/lib/worktree';
 import {
 	FileSystemError,
+	GhCliError,
 	GitError,
 	MergeStatusUnknownError,
 	UncommittedChangesError,
@@ -62,6 +64,16 @@ function classifyError(error: unknown): Extract<ToolResult<never>, { success: fa
 			type: 'filesystem_error',
 			recoverable: true,
 			suggestion: 'Check file permissions and paths',
+		};
+	}
+
+	if (error instanceof GhCliError) {
+		return {
+			success: false,
+			error: error.message,
+			type: 'gh_cli_error',
+			recoverable: true,
+			suggestion: 'Check GitHub CLI installation and authentication',
 		};
 	}
 
@@ -124,5 +136,11 @@ export async function worktreeSetup(targetDir?: string): Promise<ToolResult<Setu
 export async function worktreeCheckout(branch: string): Promise<ToolResult<CheckoutResult>> {
 	return handleToolError(async () => {
 		return await worktree.checkout(branch);
+	});
+}
+
+export async function worktreePr(prInput: string): Promise<ToolResult<PrCheckoutResult>> {
+	return handleToolError(async () => {
+		return await worktree.checkoutPr(prInput);
 	});
 }

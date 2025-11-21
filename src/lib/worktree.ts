@@ -4,6 +4,7 @@ import { getDefaultBranch, getWorktrees, hasWorktreeStructure } from '@/lib/git'
 import type {
 	CheckoutResult,
 	CreateResult,
+	PrCheckoutResult,
 	RemoveResult,
 	SetupResult,
 	StatusResult,
@@ -12,6 +13,7 @@ import type {
 } from '@/lib/types';
 import {
 	FileSystemError,
+	GhCliError,
 	GitError,
 	UncommittedChangesError,
 	UnmergedBranchError,
@@ -212,6 +214,85 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 	errorMessage += `\nTo create a new branch, use: worktree create ${branch}`;
 
 	throw new ValidationError(errorMessage);
+}
+
+/**
+ * Parse PR number from input (number or GitHub URL)
+ */
+function parsePrInput(input: string): number {
+	const num = Number.parseInt(input, 10);
+	if (!Number.isNaN(num) && num > 0) {
+		return num;
+	}
+
+	const match = input.match(/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/);
+	if (match?.[1]) {
+		return Number.parseInt(match[1], 10);
+	}
+
+	throw new ValidationError(`Invalid PR identifier: ${input}. Provide a PR number or GitHub URL.`);
+}
+
+interface GhPrInfo {
+	headRefName: string;
+	title: string;
+	url: string;
+	headRepositoryOwner: { login: string };
+	baseRepository: { owner: { login: string } };
+}
+
+export async function checkoutPr(prInput: string): Promise<PrCheckoutResult> {
+	const prNumber = parsePrInput(prInput);
+
+	const { error: whichError } = await tryCatch(async () => {
+		await $`which gh`.quiet();
+	});
+
+	if (whichError) {
+		throw new GhCliError('GitHub CLI (gh) not found. Install from https://cli.github.com');
+	}
+
+	const { data: prData, error: prError } = await tryCatch(async () => {
+		const result =
+			await $`gh pr view ${prNumber} --json headRefName,title,url,headRepositoryOwner,baseRepository`.quiet();
+		return JSON.parse(result.stdout.toString()) as GhPrInfo;
+	});
+
+	if (prError) {
+		const errorMsg = prError instanceof Error ? prError.message : String(prError);
+
+		if (errorMsg.includes('not logged in') || errorMsg.includes('authentication')) {
+			throw new GhCliError('GitHub CLI not authenticated. Run: gh auth login');
+		}
+
+		if (errorMsg.includes('Could not resolve') || errorMsg.includes('not found')) {
+			throw new ValidationError(`PR #${prNumber} not found. Check the PR number and repository.`);
+		}
+
+		throw new GhCliError(`Failed to get PR info: ${errorMsg}`);
+	}
+
+	const headOwner = prData.headRepositoryOwner.login;
+	const baseOwner = prData.baseRepository.owner.login;
+
+	if (headOwner !== baseOwner) {
+		throw new ValidationError(
+			`PR #${prNumber} is from fork '${headOwner}/${prData.headRefName}'.\n` +
+				`Add the fork as a remote and retry:\n` +
+				`  git remote add ${headOwner} https://github.com/${headOwner}/<repo>.git\n` +
+				`  git fetch ${headOwner}\n` +
+				`  worktree checkout ${headOwner}/${prData.headRefName}`
+		);
+	}
+
+	const checkoutResult = await checkout(prData.headRefName);
+
+	return {
+		...checkoutResult,
+		prNumber,
+		prTitle: prData.title,
+		prUrl: prData.url,
+	};
 }
 
 export async function remove(identifier: string, force = false): Promise<RemoveResult> {

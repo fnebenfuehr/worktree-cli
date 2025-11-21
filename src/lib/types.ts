@@ -49,6 +49,15 @@ export interface CheckoutResult {
 }
 
 /**
+ * Result of checking out a PR
+ */
+export interface PrCheckoutResult extends CheckoutResult {
+	prNumber: number;
+	prTitle: string;
+	prUrl: string;
+}
+
+/**
  * Result of removing a worktree
  */
 export interface RemoveResult {
