@@ -8,7 +8,7 @@ import {
 	executeCommand,
 	executeHooks,
 	getShellConfig,
-	type WorktreeEnvContext,
+	type WorktreeEnv,
 } from '@/hooks/executor';
 
 describe('getShellConfig', () => {
@@ -227,7 +227,7 @@ describe('hook execution', () => {
 
 describe('buildWorktreeEnv', () => {
 	test('builds correct environment variables', () => {
-		const context: WorktreeEnvContext = {
+		const context: WorktreeEnv = {
 			worktreePath: '/path/to/worktree',
 			branch: 'feature/test',
 			mainPath: '/path/to/main',
@@ -242,7 +242,7 @@ describe('buildWorktreeEnv', () => {
 	});
 
 	test('extracts project name from main path', () => {
-		const context: WorktreeEnvContext = {
+		const context: WorktreeEnv = {
 			worktreePath: '/home/user/repos/my-project/.worktrees/feature',
 			branch: 'feature/awesome',
 			mainPath: '/home/user/repos/my-project',
@@ -286,7 +286,7 @@ describe('environment variables in hooks', () => {
 			],
 		};
 
-		const envContext: WorktreeEnvContext = {
+		const env: WorktreeEnv = {
 			worktreePath: '/my/worktree',
 			branch: 'feat/env-test',
 			mainPath: '/my/main-repo',
@@ -294,7 +294,7 @@ describe('environment variables in hooks', () => {
 
 		await executeHooks(config, 'post_create', {
 			cwd: testDir,
-			env: envContext,
+			env: env,
 		});
 
 		const output = await Bun.file(outputFile).text();
@@ -309,7 +309,7 @@ describe('environment variables in hooks', () => {
 			],
 		};
 
-		const envContext: WorktreeEnvContext = {
+		const env: WorktreeEnv = {
 			worktreePath: '/path/wt',
 			branch: 'branch',
 			mainPath: '/path/main',
@@ -317,7 +317,7 @@ describe('environment variables in hooks', () => {
 
 		await executeHooks(config, 'post_create', {
 			cwd: testDir,
-			env: envContext,
+			env: env,
 		});
 
 		const output = await Bun.file(outputFile).text();
@@ -330,7 +330,7 @@ describe('environment variables in hooks', () => {
 			post_create: [`echo "$HOME" > ${outputFile}`],
 		};
 
-		const envContext: WorktreeEnvContext = {
+		const env: WorktreeEnv = {
 			worktreePath: '/test',
 			branch: 'test',
 			mainPath: '/main',
@@ -338,7 +338,7 @@ describe('environment variables in hooks', () => {
 
 		await executeHooks(config, 'post_create', {
 			cwd: testDir,
-			env: envContext,
+			env: env,
 		});
 
 		const output = await Bun.file(outputFile).text();

@@ -79,7 +79,7 @@ export async function removeCommand(
 
 	const config = await loadAndValidateConfig(gitRoot);
 
-	const envContext = {
+	const env = {
 		worktreePath,
 		branch,
 		mainPath: mainWorktreePath,
@@ -90,7 +90,7 @@ export async function removeCommand(
 			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
-			env: envContext,
+			env,
 		});
 	}
 
@@ -132,7 +132,7 @@ export async function removeCommand(
 			cwd: mainWorktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
-			env: envContext,
+			env,
 		});
 	}
 

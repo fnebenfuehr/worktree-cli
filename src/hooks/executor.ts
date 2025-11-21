@@ -6,7 +6,7 @@ import { tryCatch } from '@/utils/try-catch';
 
 export type HookType = 'post_create' | 'pre_remove' | 'post_remove';
 
-export interface WorktreeEnvContext {
+export interface WorktreeEnv {
 	worktreePath: string;
 	branch: string;
 	mainPath: string;
@@ -31,7 +31,7 @@ interface CommandResult {
 	stderr: Buffer;
 }
 
-export function buildWorktreeEnv(context: WorktreeEnvContext): Record<string, string> {
+export function buildWorktreeEnv(context: WorktreeEnv): Record<string, string> {
 	return {
 		WORKTREE_PATH: context.worktreePath,
 		WORKTREE_BRANCH: context.branch,
@@ -76,7 +76,7 @@ interface ExecuteHooksOptions {
 	cwd: string;
 	skipHooks?: boolean;
 	verbose?: boolean;
-	env?: WorktreeEnvContext;
+	env?: WorktreeEnv;
 }
 
 export async function executeHooks(
