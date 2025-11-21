@@ -92,7 +92,7 @@ export async function create(branch: string, baseBranch?: string): Promise<Creat
 
 	if (await exists(worktreeDir)) {
 		throw new FileSystemError(
-			`Worktree directory already exists: ${worktreeDir}. Choose a different branch name or remove the existing worktree.`
+			`Worktree directory already exists: ${worktreeDir}. Run \`worktree switch ${branch}\` or remove the existing worktree.`
 		);
 	}
 
@@ -117,14 +117,16 @@ export async function switchTo(branch: string): Promise<SwitchResult> {
 	const worktrees = await gitGetWorktrees(gitRoot);
 
 	if (worktrees.length === 0) {
-		throw new FileSystemError('No worktrees found');
+		throw new FileSystemError(
+			'No worktrees found. Run `worktree setup` to initialize worktree structure.'
+		);
 	}
 
 	const targetWorktree = worktrees.find((wt) => wt.branch === branch);
 
 	if (!targetWorktree) {
 		throw new FileSystemError(
-			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
+			`No worktree found for branch '${branch}'. Run \`worktree list\` to see active worktrees.`
 		);
 	}
 
@@ -142,7 +144,7 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 
 	if (!(await exists(worktreeDir))) {
 		throw new FileSystemError(
-			`No such worktree directory: ${worktreeDir}. Check branch name or use "worktree list" to see active worktrees.`
+			`No such worktree directory: ${worktreeDir}. Run \`worktree list\` to see active worktrees.`
 		);
 	}
 

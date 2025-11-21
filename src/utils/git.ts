@@ -189,7 +189,7 @@ export async function createBranch(
 	const { error: fetchError } = await tryCatch(execGit(['fetch', 'origin', baseBranch], cwd));
 	if (fetchError) {
 		throw new GitError(
-			`Failed to fetch branch '${baseBranch}' from origin`,
+			`Failed to fetch branch '${baseBranch}' from origin. Verify the branch exists with \`git branch -a\`.`,
 			`git fetch origin ${baseBranch}`,
 			{ cause: fetchError }
 		);
