@@ -68,6 +68,7 @@ export interface SetupResult {
  */
 export interface WorktreeConfig {
 	$schema?: string;
+	defaultBranch?: string;
 	post_create?: string[];
 	pre_remove?: string[];
 	post_remove?: string[];

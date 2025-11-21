@@ -2,41 +2,41 @@
  * High-level git operations for worktree management
  */
 
-import { readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
+import { configExists, loadConfig } from '@/lib/config';
 import type { WorktreeInfo } from '@/lib/types';
 import { GitError } from '@/utils/errors';
-import { execGit, getGitCommonDir, gitBranchExists, gitListWorktrees } from '@/utils/git';
+import { execGit, getGitRoot, gitBranchExists, gitListWorktrees } from '@/utils/git';
 import { tryCatch } from '@/utils/try-catch';
 
 /**
- * Get the path to the main worktree
+ * Get the project root directory (parent of all worktrees)
  */
-export async function getMainWorktreePath(cwd?: string): Promise<string> {
-	const commonDir = await getGitCommonDir(cwd);
-	return dirname(commonDir);
+export async function getProjectRoot(cwd?: string): Promise<string> {
+	const gitRoot = await getGitRoot(cwd);
+	return dirname(gitRoot);
 }
 
 /**
  * Check if the repository has worktree structure enabled
+ * Detects by checking for config file
  */
 export async function hasWorktreeStructure(cwd?: string): Promise<boolean> {
-	const commonDir = await getGitCommonDir(cwd);
-	const worktreesDir = join(commonDir, 'worktrees');
-
-	const { error, data } = await tryCatch(readdir(worktreesDir));
-	if (error) {
-		return false;
-	}
-
-	return data.length > 0;
+	const gitRoot = await getGitRoot(cwd);
+	return configExists(gitRoot);
 }
 
 /**
  * Get the default branch for the repository
+ * Reads from config first, falls back to detection
  */
 export async function getDefaultBranch(cwd?: string): Promise<string> {
-	// Get default branch from remote
+	const gitRoot = await getGitRoot(cwd);
+	const config = await loadConfig(gitRoot);
+	if (config?.defaultBranch) {
+		return config.defaultBranch;
+	}
+
 	const { error, data } = await tryCatch(execGit(['remote', 'show', 'origin'], cwd));
 
 	if (!error) {
@@ -47,17 +47,14 @@ export async function getDefaultBranch(cwd?: string): Promise<string> {
 		}
 	}
 
-	// Check if 'main' branch exists locally
 	if (await gitBranchExists('main', cwd)) {
 		return 'main';
 	}
 
-	// Check if 'master' branch exists locally
 	if (await gitBranchExists('master', cwd)) {
 		return 'master';
 	}
 
-	// Use current branch as fallback
 	const { error: currentError, data: currentData } = await tryCatch(
 		execGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
 	);

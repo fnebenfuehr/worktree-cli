@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { loadAndValidateConfig } from '@/lib/config';
-import { getMainWorktreePath } from '@/lib/git';
+import { getDefaultBranch, getProjectRoot } from '@/lib/git';
 import { executeHooks } from '@/lib/hooks';
 import * as worktree from '@/lib/worktree';
 import { GitError, ValidationError } from '@/utils/errors';
@@ -62,9 +63,11 @@ export async function removeCommand(
 
 	const gitRoot = await getGitRoot();
 
-	// Capture current directory and main worktree path before removal (worktree deletion may invalidate cwd)
+	// Capture current directory and paths before removal (worktree deletion may invalidate cwd)
 	const { data: currentDir } = tryCatch(() => process.cwd());
-	const mainWorktreePath = await getMainWorktreePath();
+	const projectRoot = await getProjectRoot();
+	const defaultBranch = await getDefaultBranch(gitRoot);
+	const defaultBranchPath = join(projectRoot, defaultBranch);
 
 	// Verify worktree exists before doing expensive checks
 	const worktrees = await worktree.list();
@@ -83,7 +86,7 @@ export async function removeCommand(
 	const env = {
 		worktreePath,
 		branch,
-		mainPath: mainWorktreePath,
+		mainPath: defaultBranchPath,
 	};
 
 	if (config) {
@@ -130,7 +133,7 @@ export async function removeCommand(
 
 	if (config) {
 		await executeHooks(config, 'post_remove', {
-			cwd: mainWorktreePath,
+			cwd: defaultBranchPath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
 			env,
@@ -140,7 +143,7 @@ export async function removeCommand(
 	// If we were in the removed worktree (or its subdirectory), show message to switch to main
 	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(worktreePath + '/')) {
 		outro(`Worktree for branch '${branch}' has been removed`);
-		note(`cd ${mainWorktreePath}`, 'To return to main worktree, run:');
+		note(`cd ${defaultBranchPath}`, 'To return to main worktree, run:');
 	} else {
 		outro(`Worktree for branch '${branch}' has been removed`);
 	}
