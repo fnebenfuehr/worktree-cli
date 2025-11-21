@@ -157,7 +157,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 	const gitRoot = await getGitRoot();
 	const worktrees = await gitGetWorktrees(gitRoot);
 
-	// 1. Check if branch exists in another local worktree → switch to that worktree
+	// Existing worktree → switch
 	const existingWorktree = worktrees.find((wt) => wt.branch === branch);
 	if (existingWorktree) {
 		return {
@@ -167,7 +167,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 		};
 	}
 
-	// 2. Check if branch exists locally but not in a worktree → create worktree from local branch
+	// Local branch → create worktree
 	const localExists = await branchExists(branch, gitRoot);
 	if (localExists) {
 		const dirName = branchToDirName(branch);
@@ -195,8 +195,8 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 		};
 	}
 
-	// 3. Check if branch exists on remote → create worktree from remote branch
-	// TODO: Support non-origin remotes via auto-detection or config (currently assumes origin)
+	// Remote branch → fetch and create worktree
+	// TODO: Support non-origin remotes
 	const remoteExists = await remoteBranchExists(branch, gitRoot);
 	if (remoteExists) {
 		const dirName = branchToDirName(branch);
@@ -213,7 +213,6 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 			);
 		}
 
-		// Fetch and create local branch from remote branch with tracking
 		await fetchRemoteBranch(branch, gitRoot);
 		await createBranch(branch, `origin/${branch}`, gitRoot);
 		await gitAddWorktree(worktreeDir, branch, gitRoot);
@@ -228,7 +227,7 @@ export async function checkout(branch: string): Promise<CheckoutResult> {
 		};
 	}
 
-	// 4. If branch doesn't exist anywhere → show helpful error with suggestions
+	// Not found → error with suggestions
 	const availableBranches = worktrees.map((wt) => wt.branch).filter((b) => b !== 'detached');
 
 	let errorMessage = `Branch '${branch}' not found locally or on remote.\n\n`;
