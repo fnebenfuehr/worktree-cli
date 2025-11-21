@@ -3,6 +3,7 @@ import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 
 export interface WorktreeConfig {
+	$schema?: string;
 	post_create?: string[];
 	pre_remove?: string[];
 	post_remove?: string[];
