@@ -5,6 +5,7 @@ import { ValidationError } from '@/utils/errors';
 import { copyConfigFiles } from '@/utils/file-operations';
 import { getGitRoot } from '@/utils/git';
 import { intro, isInteractive, log, note, outro, promptBranchName, spinner } from '@/utils/prompts';
+import { tryCatch } from '@/utils/try-catch';
 import { isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export async function checkoutCommand(
@@ -28,7 +29,12 @@ export async function checkoutCommand(
 	const s = spinner();
 	s.start('Checking out worktree');
 
-	const result = await worktree.checkout(branch);
+	const { data: result, error } = await tryCatch(worktree.checkout(branch));
+
+	if (error) {
+		s.stop('Checkout failed');
+		throw error;
+	}
 
 	s.stop('Checkout completed successfully');
 
