@@ -96,12 +96,14 @@ interface CommandOptions {
 	hooks?: boolean;
 	force?: boolean;
 	from?: string;
+	trustHooks?: boolean;
 }
 
 program
 	.command('create [branch]')
 	.description('Create a new git worktree and branch')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.option('-f, --from <branch>', 'Base branch to create from')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
@@ -110,6 +112,7 @@ program
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
 				from: options.from,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -118,6 +121,7 @@ program
 	.command('remove [branch]')
 	.description('Remove an existing git worktree')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.option('-f, --force', 'Force removal even with uncommitted changes')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
@@ -126,6 +130,7 @@ program
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
 				force: options.force,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -144,12 +149,14 @@ program
 	.command('checkout [branch]')
 	.description('Checkout a branch (switch to existing worktree or create from local/remote)')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			checkoutCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -159,12 +166,14 @@ program
 	.command('add [branch]')
 	.description('Alias for checkout - git-like naming')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			checkoutCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
