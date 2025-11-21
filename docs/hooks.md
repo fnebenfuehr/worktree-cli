@@ -168,6 +168,29 @@ worktree create feature/test --verbose
 - Hooks are optional (no config = no hooks)
 - Config loaded from main worktree root (where `.git` lives)
 
+## Environment Variables
+
+Hooks receive these environment variables for context:
+
+| Variable | Description |
+|----------|-------------|
+| `WORKTREE_PATH` | Path to the worktree being operated on |
+| `WORKTREE_BRANCH` | Branch name of the worktree |
+| `WORKTREE_MAIN_PATH` | Path to the main worktree |
+| `WORKTREE_PROJECT` | Project/repository name |
+
+### Example Usage
+
+**.worktreerc**
+```json
+{
+  "post_create": ["echo \"Created worktree at $WORKTREE_PATH for branch $WORKTREE_BRANCH\""],
+  "pre_remove": ["echo \"Cleaning up $WORKTREE_PROJECT worktree...\""]
+}
+```
+
+**Note**: For `post_remove` hooks, `WORKTREE_PATH` contains the path of the removed worktree (for reference), while the hook runs in `WORKTREE_MAIN_PATH`.
+
 ## Best Practices
 
 1. **Keep hooks simple** - Delegate complex logic to npm/bun scripts
