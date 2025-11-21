@@ -1,0 +1,58 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://github.com/fnebenfuehr/worktree-cli/blob/main/src/config/schema.json",
+	"title": "Worktree CLI Configuration",
+	"description": "Configuration schema for .worktreerc files used by worktree-cli",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string",
+			"description": "Path to the JSON schema for IDE validation and autocomplete"
+		},
+		"post_create": {
+			"type": "array",
+			"description": "Shell commands to run after creating a new worktree. Commands are executed in the newly created worktree directory.",
+			"items": {
+				"type": "string",
+				"minLength": 1,
+				"description": "A shell command to execute"
+			},
+			"examples": [
+				["npm install", "npm run build"],
+				["pnpm install"],
+				["cp ../.env .env", "yarn install"]
+			]
+		},
+		"pre_remove": {
+			"type": "array",
+			"description": "Shell commands to run before removing a worktree. Commands are executed in the worktree directory that is about to be removed.",
+			"items": {
+				"type": "string",
+				"minLength": 1,
+				"description": "A shell command to execute"
+			},
+			"examples": [["npm run clean"], ["docker-compose down"]]
+		},
+		"post_remove": {
+			"type": "array",
+			"description": "Shell commands to run after removing a worktree. Commands are executed in the main worktree directory.",
+			"items": {
+				"type": "string",
+				"minLength": 1,
+				"description": "A shell command to execute"
+			},
+			"examples": [["echo 'Worktree removed successfully'"]]
+		},
+		"copy_files": {
+			"type": "array",
+			"description": "Files to copy from the main worktree to newly created worktrees. Paths are relative to the worktree root.",
+			"items": {
+				"type": "string",
+				"minLength": 1,
+				"description": "A file path relative to the worktree root"
+			},
+			"examples": [[".env", ".env.local"], ["config/local.json", ".npmrc"]]
+		}
+	},
+	"additionalProperties": false
+}
