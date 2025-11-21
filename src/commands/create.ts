@@ -4,7 +4,7 @@ import * as worktree from '@/core/worktree';
 import { executeHooks } from '@/hooks/executor';
 import { ValidationError } from '@/utils/errors';
 import { copyConfigFiles } from '@/utils/file-operations';
-import { getCurrentBranch, getDefaultBranch, getGitRoot } from '@/utils/git';
+import { getCurrentBranch, getDefaultBranch, getGitRoot, hasWorktreeStructure } from '@/utils/git';
 import {
 	cancel,
 	intro,
@@ -35,6 +35,12 @@ export async function createCommand(
 	}
 
 	const gitRoot = await getGitRoot();
+
+	const enabled = await hasWorktreeStructure(gitRoot);
+	if (!enabled) {
+		throw new ValidationError('Repository not set up for worktrees. Run `worktree setup` first.');
+	}
+
 	const defaultBranch = await getDefaultBranch(gitRoot);
 	const currentBranch = await getCurrentBranch(gitRoot);
 
