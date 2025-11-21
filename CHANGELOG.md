@@ -1,5 +1,18 @@
 # worktree-cli
 
+## 1.4.0
+
+### Minor Changes
+
+- 9adea98: Add worktree_checkout command with intelligent branch detection. Automatically discovers branches locally or on remote and creates appropriate worktrees. Switches to existing worktree if branch already checked out. Sets upstream tracking for remote branches.
+- de2a259: Add JSON schema for configuration file validation and IDE autocomplete support
+
+### Patch Changes
+
+- 79f78a9: Add validation to require worktree structure before creating new worktrees
+- 555c677: Fix getGitCommonDir to work from parent worktree folder by adding fallback to find git repos in subdirectories, prioritizing default branch worktree.
+- 6ed7edc: Fix MCP status detection to work correctly from any worktree directory. Now properly identifies main worktree and default branch regardless of current working directory.
+
 ## 1.3.0
 
 ### Minor Changes
