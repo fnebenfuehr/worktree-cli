@@ -11,6 +11,7 @@ import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
 	branchExists,
 	createBranch,
+	fetchRemoteBranch,
 	type WorktreeInfo as GitWorktreeInfo,
 	getCurrentBranch,
 	getDefaultBranch,
@@ -22,6 +23,8 @@ import {
 	hasWorktreeStructure,
 	isBranchMerged,
 	isWorktree,
+	remoteBranchExists,
+	setUpstreamTracking,
 } from '@/utils/git';
 import { branchToDirName } from '@/utils/naming';
 import { log } from '@/utils/prompts';
@@ -45,6 +48,14 @@ export interface CreateResult {
 export interface SwitchResult {
 	path: string;
 	branch: string;
+}
+
+export interface CheckoutResult {
+	path: string;
+	branch: string;
+	action: 'switched' | 'created';
+	created?: boolean; // true if branch was newly created
+	source?: 'local' | 'remote'; // where the branch came from
 }
 
 export interface RemoveResult {
@@ -134,6 +145,103 @@ export async function switchTo(branch: string): Promise<SwitchResult> {
 		path: targetWorktree.path,
 		branch: targetWorktree.branch,
 	};
+}
+
+export async function checkout(branch: string): Promise<CheckoutResult> {
+	if (!isValidBranchName(branch)) {
+		throw new ValidationError(
+			`Invalid branch name: ${branch}\n${VALIDATION_ERRORS.BRANCH_NAME_INVALID}`
+		);
+	}
+
+	const gitRoot = await getGitRoot();
+	const worktrees = await gitGetWorktrees(gitRoot);
+
+	// Existing worktree → switch
+	const existingWorktree = worktrees.find((wt) => wt.branch === branch);
+	if (existingWorktree) {
+		return {
+			path: existingWorktree.path,
+			branch: existingWorktree.branch,
+			action: 'switched',
+		};
+	}
+
+	// Local branch → create worktree
+	const localExists = await branchExists(branch, gitRoot);
+	if (localExists) {
+		const dirName = branchToDirName(branch);
+		const projectRoot = dirname(gitRoot);
+		const worktreeDir = join(projectRoot, dirName);
+
+		if (!isSafePath(worktreeDir)) {
+			throw new ValidationError('Invalid path detected - potential directory traversal');
+		}
+
+		if (await exists(worktreeDir)) {
+			throw new FileSystemError(
+				`Worktree directory already exists: ${worktreeDir}. Choose a different branch name or remove the existing worktree.`
+			);
+		}
+
+		await gitAddWorktree(worktreeDir, branch, gitRoot);
+
+		return {
+			path: worktreeDir,
+			branch,
+			action: 'created',
+			created: false,
+			source: 'local',
+		};
+	}
+
+	// Remote branch → fetch and create worktree
+	// TODO: Support non-origin remotes
+	const remoteExists = await remoteBranchExists(branch, gitRoot);
+	if (remoteExists) {
+		const dirName = branchToDirName(branch);
+		const projectRoot = dirname(gitRoot);
+		const worktreeDir = join(projectRoot, dirName);
+
+		if (!isSafePath(worktreeDir)) {
+			throw new ValidationError('Invalid path detected - potential directory traversal');
+		}
+
+		if (await exists(worktreeDir)) {
+			throw new FileSystemError(
+				`Worktree directory already exists: ${worktreeDir}. Choose a different branch name or remove the existing worktree.`
+			);
+		}
+
+		await fetchRemoteBranch(branch, gitRoot);
+		await createBranch(branch, `origin/${branch}`, gitRoot);
+		await gitAddWorktree(worktreeDir, branch, gitRoot);
+		await setUpstreamTracking(branch, `origin/${branch}`, gitRoot);
+
+		return {
+			path: worktreeDir,
+			branch,
+			action: 'created',
+			created: false,
+			source: 'remote',
+		};
+	}
+
+	// Not found → error with suggestions
+	const availableBranches = worktrees.map((wt) => wt.branch).filter((b) => b !== 'detached');
+
+	let errorMessage = `Branch '${branch}' not found locally or on remote.\n\n`;
+	errorMessage += `Available worktrees:\n`;
+	if (availableBranches.length > 0) {
+		for (const b of availableBranches) {
+			errorMessage += `  - ${b}\n`;
+		}
+	} else {
+		errorMessage += `  (none)\n`;
+	}
+	errorMessage += `\nTo create a new branch, use: worktree create ${branch}`;
+
+	throw new ValidationError(errorMessage);
 }
 
 export async function remove(identifier: string, force = false): Promise<RemoveResult> {

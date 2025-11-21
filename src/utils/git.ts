@@ -189,16 +189,54 @@ export async function branchExists(branch: string, cwd?: string): Promise<boolea
 	return error === null;
 }
 
+export async function remoteBranchExists(branch: string, cwd?: string): Promise<boolean> {
+	// Fetch the remote branch info without downloading all objects
+	const { error } = await tryCatch(
+		execGit(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], cwd)
+	);
+	if (error) {
+		return false;
+	}
+	// If the command succeeded, check if we got any output (branch exists)
+	const { data } = await tryCatch(
+		execGit(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], cwd)
+	);
+	return data ? data.stdout.trim().length > 0 : false;
+}
+
+export async function fetchRemoteBranch(branch: string, cwd?: string): Promise<void> {
+	const { error } = await tryCatch(execGit(['fetch', 'origin', branch], cwd));
+	if (error) {
+		throw new GitError(
+			`Failed to fetch branch '${branch}' from origin. Ensure the branch exists on remote and you have network access.`,
+			`git fetch origin ${branch}`,
+			{ cause: error }
+		);
+	}
+}
+
+export async function setUpstreamTracking(
+	branch: string,
+	upstream: string,
+	cwd?: string
+): Promise<void> {
+	const { error } = await tryCatch(execGit(['branch', '--set-upstream-to', upstream, branch], cwd));
+	if (error) {
+		throw new GitError(
+			`Failed to set upstream tracking for branch '${branch}' to '${upstream}'`,
+			`git branch --set-upstream-to ${upstream} ${branch}`,
+			{ cause: error }
+		);
+	}
+}
+
 export async function createBranch(
 	branch: string,
 	baseBranch: string,
 	cwd?: string
 ): Promise<void> {
-	// Check if base branch exists locally
-	const localExists = await branchExists(baseBranch, cwd);
-
-	if (localExists) {
-		// Use local branch directly (no need to fetch)
+	// Remote ref (e.g., origin/feature) - use directly
+	if (baseBranch.startsWith('origin/')) {
 		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
 		if (branchError) {
 			throw new GitError(
@@ -210,15 +248,21 @@ export async function createBranch(
 		return;
 	}
 
-	// If not local, fetch from origin
-	const { error: fetchError } = await tryCatch(execGit(['fetch', 'origin', baseBranch], cwd));
-	if (fetchError) {
-		throw new GitError(
-			`Failed to fetch branch '${baseBranch}' from origin. Verify the branch exists with \`git branch -a\`.`,
-			`git fetch origin ${baseBranch}`,
-			{ cause: fetchError }
-		);
+	// Local branch exists - use directly
+	if (await branchExists(baseBranch, cwd)) {
+		const { error: branchError } = await tryCatch(execGit(['branch', branch, baseBranch], cwd));
+		if (branchError) {
+			throw new GitError(
+				`Failed to create branch '${branch}' from '${baseBranch}'`,
+				`git branch ${branch} ${baseBranch}`,
+				{ cause: branchError }
+			);
+		}
+		return;
 	}
+
+	// Not local - fetch from origin and create
+	await fetchRemoteBranch(baseBranch, cwd);
 
 	const { error: branchError } = await tryCatch(
 		execGit(['branch', branch, `origin/${baseBranch}`], cwd)

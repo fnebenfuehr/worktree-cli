@@ -111,3 +111,11 @@ export async function worktreeSetup(targetDir?: string): Promise<ToolResult<work
 		return await worktree.setup(targetDir);
 	});
 }
+
+export async function worktreeCheckout(
+	branch: string
+): Promise<ToolResult<worktree.CheckoutResult>> {
+	return handleToolError(async () => {
+		return await worktree.checkout(branch);
+	});
+}
