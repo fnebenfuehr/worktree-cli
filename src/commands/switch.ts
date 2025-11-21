@@ -25,7 +25,7 @@ export async function switchCommand(branch?: string): Promise<number> {
 	s.stop('Worktrees loaded');
 
 	if (worktrees.length === 0) {
-		cancel('No worktrees found');
+		cancel('No worktrees found. Run `worktree setup` to initialize worktree structure.');
 		return 1;
 	}
 

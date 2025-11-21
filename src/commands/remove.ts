@@ -71,7 +71,7 @@ export async function removeCommand(
 
 	if (!targetWorktree) {
 		throw new ValidationError(
-			`No worktree found for branch '${branch}'. Use "worktree list" to see active worktrees.`
+			`No worktree found for branch '${branch}'. Run \`worktree list\` to see active worktrees.`
 		);
 	}
 
