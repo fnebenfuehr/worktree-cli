@@ -143,7 +143,7 @@ export async function removeCommand(
 	}
 
 	// If we were in the removed worktree (or its subdirectory), show message to switch to main
-	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(worktreePath + '/')) {
+	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(`${worktreePath}/`)) {
 		outro(`Worktree for branch '${branch}' has been removed`);
 		note(`cd ${defaultBranchPath}`, 'To return to main worktree, run:');
 	} else {
