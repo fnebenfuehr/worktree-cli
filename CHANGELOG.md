@@ -1,5 +1,17 @@
 # worktree-cli
 
+## 1.5.0
+
+### Minor Changes
+
+- f725a59: Add `worktree pr` command to checkout PRs by number or GitHub URL
+- 830b9f0: Add `worktree update` command to update CLI to the latest version
+- ad3c6d8: Add security validation for hook commands before execution. Blocks dangerous patterns (curl|sh, sudo, eval, unsafe rm -rf) and prompts for confirmation on unrecognized commands. Use --trust-hooks to bypass validation.
+
+### Patch Changes
+
+- 8954bd7: Fix worktree detection to use config file instead of checking worktrees directory
+
 ## 1.4.0
 
 ### Minor Changes
