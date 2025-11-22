@@ -11,6 +11,7 @@ import { cloneCommand } from '@/commands/clone';
 import { createCommand } from '@/commands/create';
 import { listCommand } from '@/commands/list';
 import { mcpConfigCommand, mcpStartCommand, mcpTestCommand } from '@/commands/mcp';
+import { prCommand } from '@/commands/pr';
 import { removeCommand } from '@/commands/remove';
 import { setupCommand } from '@/commands/setup';
 import { switchCommand } from '@/commands/switch';
@@ -174,6 +175,20 @@ program
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
 				trustHooks: options.trustHooks,
+			})
+		)();
+	});
+
+program
+	.command('pr [number]')
+	.description('Checkout a PR by number or GitHub URL')
+	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.action((prInput: string | undefined, options: CommandOptions, command) => {
+		const globalOpts = command.optsWithGlobals();
+		handleCommandError(() =>
+			prCommand(prInput, {
+				skipHooks: !options.hooks,
+				verbose: globalOpts.verbose,
 			})
 		)();
 	});

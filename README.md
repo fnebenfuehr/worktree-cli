@@ -135,17 +135,23 @@ worktree list
 
 ## Configuration & Hooks
 
-Automate setup and teardown with lifecycle hooks. Create a `.worktreerc` in your project root:
+A `.worktree.json` config file is automatically created when you run `worktree clone` or `worktree setup`. You can also create one manually:
 
 ```json
 {
+  "defaultBranch": "main",
   "post_create": ["bun install"],
   "pre_remove": ["docker compose down"],
   "copy_files": [".env", "apps/web/.env.local"]
 }
 ```
 
-Now dependencies install automatically and files are copied when creating worktrees.
+**Configuration options:**
+- `defaultBranch` - The default branch name (auto-detected during setup)
+- `post_create` - Commands to run after creating a worktree
+- `pre_remove` - Commands to run before removing a worktree
+- `post_remove` - Commands to run after removing a worktree
+- `copy_files` - Files to copy from main worktree when creating new worktrees
 
 **See [docs/hooks.md](./docs/hooks.md) for complete configuration guide and examples.**
 
