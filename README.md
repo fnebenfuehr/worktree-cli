@@ -124,7 +124,7 @@ Each directory is a complete working copy with shared git history.
 
 - [Quick Start Guide](./docs/QUICKSTART.md)
 - [AI Coding Workflows](./docs/AI_WORKFLOWS.md)
-- [Hooks Configuration](./docs/hooks.md)
+- [Hooks Configuration](./docs/HOOKS.md)
 
 ## License
 
