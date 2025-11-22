@@ -68,7 +68,7 @@ async function writeCache(cache: UpdateCheckCache): Promise<void> {
 	}
 }
 
-async function fetchLatestVersion(packageName: string): Promise<string | null> {
+export async function fetchLatestVersion(packageName: string): Promise<string | null> {
 	const { error, data: response } = await tryCatch(
 		fetch(`https://registry.npmjs.org/${packageName}/latest`, {
 			headers: { Accept: 'application/json' },
@@ -95,7 +95,7 @@ function isValidVersion(version: string): boolean {
 	});
 }
 
-function isNewerVersion(current: string, latest: string): boolean {
+export function isNewerVersion(current: string, latest: string): boolean {
 	if (PRERELEASE_PATTERN.test(current) || PRERELEASE_PATTERN.test(latest)) {
 		return false;
 	}

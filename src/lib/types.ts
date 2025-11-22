@@ -125,6 +125,20 @@ export interface CopyResult {
 export type HookType = 'post_create' | 'pre_remove' | 'post_remove';
 
 /**
+ * Security level for hook command validation
+ */
+export type SecurityLevel = 'safe' | 'risky' | 'blocked';
+
+/**
+ * Result of validating a hook command for security concerns
+ */
+export interface SecurityValidationResult {
+	level: SecurityLevel;
+	reason?: string;
+	command: string;
+}
+
+/**
  * Environment context for worktree operations
  */
 export interface WorktreeEnv {

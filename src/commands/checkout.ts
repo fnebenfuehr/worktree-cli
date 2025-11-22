@@ -9,7 +9,7 @@ import { isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export async function checkoutCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean }
+	options?: { skipHooks?: boolean; verbose?: boolean; trustHooks?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -59,6 +59,12 @@ export async function checkoutCommand(
 				cwd: result.path,
 				skipHooks: options?.skipHooks,
 				verbose: options?.verbose,
+				trustHooks: options?.trustHooks,
+				env: {
+					worktreePath: result.path,
+					branch: result.branch,
+					mainPath: gitRoot,
+				},
 			});
 		}
 	}

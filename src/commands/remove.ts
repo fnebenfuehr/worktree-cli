@@ -20,7 +20,7 @@ import { tryCatch } from '@/utils/try-catch';
 
 export async function removeCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean }
+	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean; trustHooks?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -94,6 +94,7 @@ export async function removeCommand(
 			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			trustHooks: options?.trustHooks,
 			env,
 		});
 	}
@@ -136,12 +137,13 @@ export async function removeCommand(
 			cwd: defaultBranchPath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			trustHooks: options?.trustHooks,
 			env,
 		});
 	}
 
 	// If we were in the removed worktree (or its subdirectory), show message to switch to main
-	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(worktreePath + '/')) {
+	if (!currentDir || currentDir === worktreePath || currentDir.startsWith(`${worktreePath}/`)) {
 		outro(`Worktree for branch '${branch}' has been removed`);
 		note(`cd ${defaultBranchPath}`, 'To return to main worktree, run:');
 	} else {

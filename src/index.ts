@@ -16,6 +16,7 @@ import { removeCommand } from '@/commands/remove';
 import { setupCommand } from '@/commands/setup';
 import { statusCommand } from '@/commands/status';
 import { switchCommand } from '@/commands/switch';
+import { getVersionInfo, updateCommand } from '@/commands/update';
 import { UserCancelledError, WorktreeError } from '@/utils/errors';
 import { log } from '@/utils/prompts';
 import { checkForUpdates } from '@/utils/update-checker';
@@ -55,8 +56,21 @@ const program = new Command();
 program
 	.name('worktree')
 	.description('A modern CLI tool for managing git worktrees with ease')
-	.version(VERSION, '-v, --version', 'Show version')
+	.option('-v, --version', 'Show version')
 	.option('--verbose', 'Enable verbose output')
+	.on('option:version', async () => {
+		console.log(VERSION);
+		try {
+			const info = await getVersionInfo(packageJson);
+			if (info.updateAvailable && info.latest) {
+				console.log(`\nUpdate available: ${info.current} → ${info.latest}`);
+				console.log(`Run: npm update -g ${packageJson.name}`);
+			}
+		} catch {
+			// Silently ignore update check errors
+		}
+		process.exit(0);
+	})
 	.addHelpText(
 		'after',
 		`
@@ -98,12 +112,14 @@ interface CommandOptions {
 	hooks?: boolean;
 	force?: boolean;
 	from?: string;
+	trustHooks?: boolean;
 }
 
 program
 	.command('create [branch]')
 	.description('Create a new git worktree and branch')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.option('-f, --from <branch>', 'Base branch to create from')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
@@ -112,6 +128,7 @@ program
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
 				from: options.from,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -120,6 +137,7 @@ program
 	.command('remove [branch]')
 	.description('Remove an existing git worktree')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.option('-f, --force', 'Force removal even with uncommitted changes')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
@@ -128,6 +146,7 @@ program
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
 				force: options.force,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -151,12 +170,14 @@ program
 	.command('checkout [branch]')
 	.description('Checkout a branch (switch to existing worktree or create from local/remote)')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			checkoutCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -166,12 +187,14 @@ program
 	.command('add [branch]')
 	.description('Alias for checkout - git-like naming')
 	.option('--no-hooks', 'Skip running lifecycle hooks')
+	.option('--trust-hooks', 'Trust all hook commands without security validation')
 	.action((branch: string | undefined, options: CommandOptions, command) => {
 		const globalOpts = command.optsWithGlobals();
 		handleCommandError(() =>
 			checkoutCommand(branch, {
 				skipHooks: !options.hooks,
 				verbose: globalOpts.verbose,
+				trustHooks: options.trustHooks,
 			})
 		)();
 	});
@@ -208,6 +231,12 @@ mcpCommand
 	.command('test')
 	.description('Test MCP server connection')
 	.action(() => handleCommandError(() => mcpTestCommand())());
+
+// Update command
+program
+	.command('update')
+	.description('Update CLI to the latest version')
+	.action(() => handleCommandError(() => updateCommand(packageJson))());
 
 // Fire-and-forget update check (non-blocking)
 checkForUpdates(packageJson, ONE_DAY_MS).catch(() => {
