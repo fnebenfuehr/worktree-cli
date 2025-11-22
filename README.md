@@ -105,7 +105,7 @@ Hooks receive environment variables: `WORKTREE_PATH`, `WORKTREE_BRANCH`, `WORKTR
 | Setup new repo | Multiple commands + directory management | `worktree clone <url>` |
 | Post-create setup | Manual: install deps, copy .env | Automatic via hooks |
 | PR review | Stash → checkout → review → checkout → pop | `worktree pr 123` |
-| AI integration | Not available | Built-in MCP server |
+| AI integration | Manual git commands | Native MCP server |
 
 ## Directory Structure
 
