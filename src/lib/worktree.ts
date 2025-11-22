@@ -243,28 +243,26 @@ interface GhPrInfo {
 	title: string;
 	url: string;
 	headRepositoryOwner: { login: string };
-	baseRepository: { owner: { login: string } };
+	isCrossRepository: boolean;
 }
 
 export async function checkoutPr(prInput: string): Promise<PrCheckoutResult> {
 	const prNumber = parsePrInput(prInput);
+	const gitRoot = await getGitRoot();
 
-	const { error: whichError } = await tryCatch(async () => {
-		await $`which gh`.quiet();
-	});
-
-	if (whichError) {
+	const whichResult = await $`which gh`.nothrow().quiet();
+	if (whichResult.exitCode !== 0) {
 		throw new GhCliError('GitHub CLI (gh) not found. Install from https://cli.github.com');
 	}
 
-	const { data: prData, error: prError } = await tryCatch(async () => {
-		const result =
-			await $`gh pr view ${prNumber} --json headRefName,title,url,headRepositoryOwner,baseRepository`.quiet();
-		return JSON.parse(result.stdout.toString()) as GhPrInfo;
-	});
+	const prResult =
+		await $`gh pr view ${prNumber} --json headRefName,title,url,headRepositoryOwner,isCrossRepository`
+			.cwd(gitRoot)
+			.nothrow()
+			.quiet();
 
-	if (prError) {
-		const errorMsg = prError instanceof Error ? prError.message : String(prError);
+	if (prResult.exitCode !== 0) {
+		const errorMsg = prResult.stderr.toString().trim();
 
 		if (errorMsg.includes('not logged in') || errorMsg.includes('authentication')) {
 			throw new GhCliError('GitHub CLI not authenticated. Run: gh auth login');
@@ -274,13 +272,13 @@ export async function checkoutPr(prInput: string): Promise<PrCheckoutResult> {
 			throw new ValidationError(`PR #${prNumber} not found. Check the PR number and repository.`);
 		}
 
-		throw new GhCliError(`Failed to get PR info: ${errorMsg}`);
+		throw new GhCliError(`Failed to get PR info: ${errorMsg || 'unknown error'}`);
 	}
 
-	const headOwner = prData.headRepositoryOwner.login;
-	const baseOwner = prData.baseRepository.owner.login;
+	const prData = JSON.parse(prResult.stdout.toString()) as GhPrInfo;
 
-	if (headOwner !== baseOwner) {
+	if (prData.isCrossRepository) {
+		const headOwner = prData.headRepositoryOwner.login;
 		throw new ValidationError(
 			`PR #${prNumber} is from fork '${headOwner}/${prData.headRefName}'.\n` +
 				`Add the fork as a remote and retry:\n` +
