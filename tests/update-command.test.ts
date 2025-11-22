@@ -3,6 +3,7 @@ import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'bun';
+import * as updateModule from '@/commands/update';
 import { getVersionInfo, updateCommand } from '@/commands/update';
 import * as prompts from '@/utils/prompts';
 import { setCacheDir } from '@/utils/update-checker';
@@ -111,6 +112,7 @@ describe('update command', () => {
 					})
 				)
 			);
+			spyOn(updateModule, 'getInstalledVersion').mockResolvedValue(null);
 
 			const result = await updateCommand({ name: 'test-pkg', version: '1.0.0' });
 
@@ -119,6 +121,7 @@ describe('update command', () => {
 
 		test('returns 1 when cannot fetch latest version', async () => {
 			globalThis.fetch = mock(() => Promise.reject(new Error('Network error')));
+			spyOn(updateModule, 'getInstalledVersion').mockResolvedValue(null);
 
 			const result = await updateCommand({ name: 'test-pkg', version: '1.0.0' });
 

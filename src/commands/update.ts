@@ -11,7 +11,9 @@ interface PackageJson {
 /**
  * Runs npm update -g for the package and returns the new version
  */
-async function runNpmUpdate(packageName: string): Promise<{ success: boolean; error?: string }> {
+export async function runNpmUpdate(
+	packageName: string
+): Promise<{ success: boolean; error?: string }> {
 	return new Promise((resolve) => {
 		const child = spawn('npm', ['update', '-g', packageName], {
 			stdio: ['ignore', 'pipe', 'pipe'],
@@ -28,7 +30,6 @@ async function runNpmUpdate(packageName: string): Promise<{ success: boolean; er
 			if (code === 0) {
 				resolve({ success: true });
 			} else {
-				// Check for common permission errors
 				if (stderr.includes('EACCES') || stderr.includes('permission denied')) {
 					resolve({
 						success: false,
@@ -59,7 +60,7 @@ async function runNpmUpdate(packageName: string): Promise<{ success: boolean; er
 /**
  * Gets the currently installed version by running npm list
  */
-async function getInstalledVersion(packageName: string): Promise<string | null> {
+export async function getInstalledVersion(packageName: string): Promise<string | null> {
 	return new Promise((resolve) => {
 		const child = spawn('npm', ['list', '-g', packageName, '--depth=0', '--json'], {
 			stdio: ['ignore', 'pipe', 'pipe'],
@@ -93,12 +94,10 @@ export async function updateCommand(pkg: PackageJson): Promise<number> {
 
 	const s = spinner();
 
-	// Check current installed version
 	s.start('Checking current version');
 	const installedVersion = (await getInstalledVersion(pkg.name)) || pkg.version;
 	s.stop(`Current version: ${installedVersion}`);
 
-	// Check for latest version
 	s.start('Checking for updates');
 	const latestVersion = await fetchLatestVersion(pkg.name);
 
@@ -116,7 +115,6 @@ export async function updateCommand(pkg: PackageJson): Promise<number> {
 
 	s.stop(`Update available: ${installedVersion} → ${latestVersion}`);
 
-	// Run update
 	s.start(`Updating to ${latestVersion}`);
 	const result = await runNpmUpdate(pkg.name);
 
@@ -125,7 +123,6 @@ export async function updateCommand(pkg: PackageJson): Promise<number> {
 		throw new WorktreeError(result.error || 'Update failed', 'UPDATE_FAILED', 1);
 	}
 
-	// Verify the update
 	const newVersion = await getInstalledVersion(pkg.name);
 	s.stop(`Updated successfully`);
 
