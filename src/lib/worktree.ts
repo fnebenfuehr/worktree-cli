@@ -22,13 +22,14 @@ import {
 } from '@/utils/errors';
 import { createDir, exists, getAllItems, move } from '@/utils/fs';
 import {
+	formatWorkingDirectoryStatus,
 	getGitRoot,
 	gitAddWorktree,
 	gitBranchExists,
 	gitCreateBranch,
 	gitFetchRemoteBranch,
 	gitGetCurrentBranch,
-	gitHasUncommittedChanges,
+	gitGetWorkingDirectoryStatus,
 	gitIsBranchMerged,
 	gitIsWorktree,
 	gitRemoteBranchExists,
@@ -311,8 +312,10 @@ export async function remove(identifier: string, force = false): Promise<RemoveR
 
 	if (!force) {
 		// Check for uncommitted changes (includes both tracked changes and untracked files)
-		if (await gitHasUncommittedChanges(worktreeDir, { includeUntracked: true })) {
-			throw new UncommittedChangesError(identifier);
+		const status = await gitGetWorkingDirectoryStatus(worktreeDir);
+		if (status.hasChanges) {
+			const statusSummary = formatWorkingDirectoryStatus(status);
+			throw new UncommittedChangesError(identifier, statusSummary);
 		}
 
 		// Check if branch is merged
@@ -371,8 +374,13 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 
 	const currentBranch = await gitGetCurrentBranch();
 
-	if (await gitHasUncommittedChanges()) {
-		throw new UncommittedChangesError(currentBranch);
+	const status = await gitGetWorkingDirectoryStatus();
+	if (status.staged.length > 0 || status.unstaged.length > 0) {
+		const statusSummary = formatWorkingDirectoryStatus({
+			...status,
+			untracked: [], // Don't show untracked files for setup
+		});
+		throw new UncommittedChangesError(currentBranch, statusSummary);
 	}
 
 	const tempDir = `.tmp-worktree-setup-${process.pid}`;
