@@ -1,19 +1,9 @@
 import { basename } from 'node:path';
 import { $ } from 'bun';
-import type { HookType, WorktreeConfig, WorktreeEnv } from '@/lib/types';
+import type { HookType, SecurityValidationResult, WorktreeConfig, WorktreeEnv } from '@/lib/types';
 import { isInteractive, log, promptConfirm, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 
-// Security validation types
-export type SecurityLevel = 'safe' | 'risky' | 'blocked';
-
-export interface SecurityValidationResult {
-	level: SecurityLevel;
-	reason?: string;
-	command: string;
-}
-
-// Safe paths that can be used with rm -rf
 const SAFE_RM_PATHS = [
 	'node_modules',
 	'dist',
@@ -31,7 +21,6 @@ const SAFE_RM_PATHS = [
 	'.output',
 ];
 
-// Patterns that are always blocked
 const BLOCKED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 	{
 		pattern: /\bcurl\s+[^|]*\|\s*(?:ba)?sh\b/i,
@@ -51,7 +40,6 @@ const BLOCKED_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 	},
 ];
 
-// Patterns that are safe and don't need confirmation
 const SAFE_PATTERNS: RegExp[] = [
 	// Package managers
 	/^\s*npm\s+(install|ci|run|test|build|start|exec)\b/,
