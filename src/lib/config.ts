@@ -40,13 +40,17 @@ export async function configExists(searchPath: string): Promise<boolean> {
 }
 
 /**
- * Ensure config exists, creating it if missing (migration helper)
+ * Ensure config exists and has defaultBranch set, updating if missing
  */
 export async function ensureConfig(gitRoot: string, defaultBranch: string): Promise<void> {
-	if (await configExists(gitRoot)) {
+	const config = await loadConfig(gitRoot);
+
+	if (config?.defaultBranch) {
 		return;
 	}
+
 	await writeConfig(gitRoot, { defaultBranch });
+	log.info(`Updated config with defaultBranch: ${defaultBranch}`);
 }
 
 function isStringArray(value: unknown): value is string[] {
