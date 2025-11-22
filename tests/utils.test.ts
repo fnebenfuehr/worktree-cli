@@ -1,7 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { realpath as fsRealpath, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, test } from 'bun:test';
 import { branchToDirName, extractRepoName } from '@/utils/naming';
 
 describe('fs utilities', () => {
