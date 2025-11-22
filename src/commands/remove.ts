@@ -20,7 +20,7 @@ import { tryCatch } from '@/utils/try-catch';
 
 export async function removeCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean }
+	options?: { skipHooks?: boolean; verbose?: boolean; force?: boolean; trustHooks?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -94,6 +94,7 @@ export async function removeCommand(
 			cwd: worktreePath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			trustHooks: options?.trustHooks,
 			env,
 		});
 	}
@@ -136,6 +137,7 @@ export async function removeCommand(
 			cwd: defaultBranchPath,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			trustHooks: options?.trustHooks,
 			env,
 		});
 	}
