@@ -5,7 +5,12 @@ export type ToolResult<T> =
 	| {
 			success: false;
 			error: string;
-			type: 'git_error' | 'validation_error' | 'filesystem_error' | 'unknown_error';
+			type:
+				| 'git_error'
+				| 'validation_error'
+				| 'filesystem_error'
+				| 'gh_cli_error'
+				| 'unknown_error';
 			recoverable: boolean;
 			suggestion?: string;
 	  };

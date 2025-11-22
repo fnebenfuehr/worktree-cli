@@ -1,13 +1,15 @@
+import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { cosmiconfig } from 'cosmiconfig';
 import type { CopyResult, WorktreeConfig } from '@/lib/types';
-import { copyFile, createDir } from '@/utils/fs';
+import { copyFile, createDir, exists } from '@/utils/fs';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 import { isSafePath } from '@/utils/validation';
 
 const explorer = cosmiconfig('worktree', {
 	searchPlaces: [
+		'.worktree.json',
 		'.worktreerc',
 		'.worktreerc.json',
 		'.worktreerc.yaml',
@@ -20,6 +22,8 @@ const explorer = cosmiconfig('worktree', {
 });
 
 export async function loadConfig(searchPath: string): Promise<WorktreeConfig | null> {
+	// Clear cache to ensure fresh reads after writes
+	explorer.clearCaches();
 	const { error, data: result } = await tryCatch(explorer.search(searchPath));
 	if (error) {
 		if (process.env.DEBUG) {
@@ -28,6 +32,25 @@ export async function loadConfig(searchPath: string): Promise<WorktreeConfig | n
 		return null;
 	}
 	return result?.config || null;
+}
+
+export async function configExists(searchPath: string): Promise<boolean> {
+	const config = await loadConfig(searchPath);
+	return config !== null;
+}
+
+/**
+ * Ensure config exists and has defaultBranch set, updating if missing
+ */
+export async function ensureConfig(gitRoot: string, defaultBranch: string): Promise<void> {
+	const config = await loadConfig(gitRoot);
+
+	if (config?.defaultBranch) {
+		return;
+	}
+
+	await writeConfig(gitRoot, { defaultBranch });
+	log.info(`Updated config with defaultBranch: ${defaultBranch}`);
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -59,6 +82,33 @@ export async function loadAndValidateConfig(gitRoot: string): Promise<WorktreeCo
 	}
 
 	return config;
+}
+
+/**
+ * Write or update worktree configuration file
+ * Merges with existing config if present
+ */
+export async function writeConfig(
+	gitRoot: string,
+	newConfig: Partial<WorktreeConfig>
+): Promise<void> {
+	const configPath = join(gitRoot, '.worktree.json');
+
+	let existingConfig: WorktreeConfig = {};
+	if (await exists(configPath)) {
+		const loaded = await loadConfig(gitRoot);
+		if (loaded) {
+			existingConfig = loaded;
+		}
+	}
+
+	const mergedConfig: WorktreeConfig = {
+		...existingConfig,
+		...newConfig,
+	};
+
+	const content = JSON.stringify(mergedConfig, null, '\t');
+	await writeFile(configPath, `${content}\n`, 'utf-8');
 }
 
 export async function copyConfigFiles(opts: {

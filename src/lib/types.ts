@@ -49,6 +49,15 @@ export interface CheckoutResult {
 }
 
 /**
+ * Result of checking out a PR
+ */
+export interface PrCheckoutResult extends CheckoutResult {
+	prNumber: number;
+	prTitle: string;
+	prUrl: string;
+}
+
+/**
  * Result of removing a worktree
  */
 export interface RemoveResult {
@@ -68,6 +77,7 @@ export interface SetupResult {
  */
 export interface WorktreeConfig {
 	$schema?: string;
+	defaultBranch?: string;
 	post_create?: string[];
 	pre_remove?: string[];
 	post_remove?: string[];

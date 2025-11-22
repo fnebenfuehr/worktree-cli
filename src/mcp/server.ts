@@ -125,6 +125,22 @@ export async function startMCPServer(): Promise<void> {
 						required: ['branch'],
 					},
 				},
+				{
+					name: 'worktree_pr',
+					description:
+						'Checkout a GitHub PR by number or URL. Fetches PR info, creates worktree from PR branch, and shows PR details. Requires GitHub CLI (gh) to be installed and authenticated.',
+					inputSchema: {
+						type: 'object',
+						properties: {
+							prInput: {
+								type: 'string',
+								description:
+									'PR number or GitHub PR URL (e.g., "123" or "https://github.com/owner/repo/pull/123")',
+							},
+						},
+						required: ['prInput'],
+					},
+				},
 			],
 		};
 	});
@@ -212,6 +228,19 @@ export async function startMCPServer(): Promise<void> {
 			case 'worktree_checkout': {
 				const { branch } = args as { branch: string };
 				const result = await tools.worktreeCheckout(branch);
+				return {
+					content: [
+						{
+							type: 'text',
+							text: JSON.stringify(result, null, 2),
+						},
+					],
+				};
+			}
+
+			case 'worktree_pr': {
+				const { prInput } = args as { prInput: string };
+				const result = await tools.worktreePr(prInput);
 				return {
 					content: [
 						{

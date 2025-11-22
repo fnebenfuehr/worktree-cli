@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import { $ } from 'bun';
+import { writeConfig } from '@/lib/config';
 import { FileSystemError, GitError, ValidationError, WorktreeError } from '@/utils/errors';
 import { move } from '@/utils/fs';
 import { gitGetCurrentBranch } from '@/utils/git';
@@ -66,6 +67,7 @@ export async function cloneCommand(gitUrl?: string): Promise<number> {
 
 		const targetDir = `${repoName}/${defaultBranch}`;
 		await move(tempClone, targetDir);
+		await writeConfig(targetDir, { defaultBranch });
 
 		s.stop('Repository cloned successfully');
 		outro(`cd ${targetDir}\nworktree create <branch-name>`);
