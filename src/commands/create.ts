@@ -19,7 +19,7 @@ import { isValidBranchName, VALIDATION_ERRORS } from '@/utils/validation';
 
 export async function createCommand(
 	branch?: string,
-	options?: { skipHooks?: boolean; verbose?: boolean; from?: string }
+	options?: { skipHooks?: boolean; verbose?: boolean; from?: string; trustHooks?: boolean }
 ): Promise<number> {
 	const shouldPrompt = !branch && isInteractive();
 
@@ -91,6 +91,7 @@ export async function createCommand(
 			cwd: result.path,
 			skipHooks: options?.skipHooks,
 			verbose: options?.verbose,
+			trustHooks: options?.trustHooks,
 			env: {
 				worktreePath: result.path,
 				branch: result.branch,
