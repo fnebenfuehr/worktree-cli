@@ -22,6 +22,8 @@ cd your-project && worktree setup
 worktree create feat/new-feature
 ```
 
+See [docs/QUICKSTART.md](./docs/QUICKSTART.md) for detailed setup guide.
+
 ## MCP Integration
 
 Add to your Claude Code or AI assistant config:
@@ -117,6 +119,12 @@ project/
 ```
 
 Each directory is a complete working copy with shared git history.
+
+## Documentation
+
+- [Quick Start Guide](./docs/QUICKSTART.md)
+- [AI Coding Workflows](./docs/AI_WORKFLOWS.md)
+- [Hooks Configuration](./docs/hooks.md)
 
 ## License
 
