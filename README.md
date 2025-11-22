@@ -1,7 +1,7 @@
-# Worktree CLI
-
 [![npm version](https://img.shields.io/npm/v/@fnebenfuehr/worktree-cli.svg)](https://www.npmjs.com/package/@fnebenfuehr/worktree-cli)
 [![license](https://img.shields.io/npm/l/@fnebenfuehr/worktree-cli.svg)](https://github.com/fnebenfuehr/worktree-cli/blob/main/LICENSE)
+
+# Worktree CLI
 
 Git worktree management for AI coding assistants. Enables parallel development across multiple branches without context switching.
 
