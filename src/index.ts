@@ -50,28 +50,28 @@ function handleCommandError(fn: () => Promise<number>) {
 	};
 }
 
+// Handle version flag before Commander parses
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+	console.log(VERSION);
+	try {
+		const info = await getVersionInfo(packageJson);
+		if (info.updateAvailable && info.latest) {
+			console.log(`\nUpdate available: ${info.current} → ${info.latest}`);
+			console.log(`Run: worktree update`);
+		}
+	} catch {
+		// Silently ignore update check errors
+	}
+	process.exit(0);
+}
+
 const program = new Command();
 
 program
 	.name('worktree')
 	.description('A modern CLI tool for managing git worktrees with ease')
-	.version(VERSION, '-v, --version', 'Show version')
+	.option('-v, --version', 'Show version')
 	.option('--verbose', 'Enable verbose output')
-	.configureOutput({
-		outputVersion: async (str) => {
-			console.log(str.trim());
-			try {
-				const info = await getVersionInfo(packageJson);
-				if (info.updateAvailable && info.latest) {
-					console.log(`\nUpdate available: ${info.current} → ${info.latest}`);
-					console.log(`Run: worktree update`);
-				}
-			} catch {
-				// Silently ignore update check errors
-			}
-			process.exit(0);
-		},
-	})
 	.addHelpText(
 		'after',
 		`
