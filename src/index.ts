@@ -18,7 +18,7 @@ import { switchCommand } from '@/commands/switch';
 import { getVersionInfo, updateCommand } from '@/commands/update';
 import { UserCancelledError, WorktreeError } from '@/utils/errors';
 import { log } from '@/utils/prompts';
-import { checkForUpdates } from '@/utils/update-checker';
+import { checkForUpdates } from '@/utils/update';
 import packageJson from '../package.json';
 
 const VERSION = packageJson.version;
@@ -55,20 +55,22 @@ const program = new Command();
 program
 	.name('worktree')
 	.description('A modern CLI tool for managing git worktrees with ease')
-	.option('-v, --version', 'Show version')
+	.version(VERSION, '-v, --version', 'Show version')
 	.option('--verbose', 'Enable verbose output')
-	.on('option:version', async () => {
-		console.log(VERSION);
-		try {
-			const info = await getVersionInfo(packageJson);
-			if (info.updateAvailable && info.latest) {
-				console.log(`\nUpdate available: ${info.current} → ${info.latest}`);
-				console.log(`Run: npm update -g ${packageJson.name}`);
+	.configureOutput({
+		outputVersion: async (str) => {
+			console.log(str.trim());
+			try {
+				const info = await getVersionInfo(packageJson);
+				if (info.updateAvailable && info.latest) {
+					console.log(`\nUpdate available: ${info.current} → ${info.latest}`);
+					console.log(`Run: worktree update`);
+				}
+			} catch {
+				// Silently ignore update check errors
 			}
-		} catch {
-			// Silently ignore update check errors
-		}
-		process.exit(0);
+			process.exit(0);
+		},
 	})
 	.addHelpText(
 		'after',

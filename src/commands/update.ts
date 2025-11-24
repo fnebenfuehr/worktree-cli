@@ -1,12 +1,8 @@
 import { spawn } from 'node:child_process';
+import type { PackageJson } from '@/lib/types';
 import { WorktreeError } from '@/utils/errors';
 import { intro, log, outro, spinner } from '@/utils/prompts';
-import { fetchLatestVersion, isNewerVersion } from '@/utils/update-checker';
-
-interface PackageJson {
-	name: string;
-	version: string;
-}
+import { fetchLatestVersion, isNewerVersion, writeCache } from '@/utils/update';
 
 /**
  * Runs npm update -g for the package and returns the new version
@@ -144,6 +140,11 @@ export async function getVersionInfo(
 ): Promise<{ current: string; latest: string | null; updateAvailable: boolean }> {
 	const latest = await fetchLatestVersion(pkg.name);
 	const updateAvailable = latest ? isNewerVersion(pkg.version, latest) : false;
+
+	await writeCache({
+		lastCheck: Date.now(),
+		latestVersion: latest || undefined,
+	});
 
 	return {
 		current: pkg.version,
