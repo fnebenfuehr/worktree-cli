@@ -6,7 +6,7 @@ import { spawn } from 'bun';
 import * as updateModule from '@/commands/update';
 import { getVersionInfo, updateCommand } from '@/commands/update';
 import * as prompts from '@/utils/prompts';
-import { setCacheDir } from '@/utils/update-checker';
+import { setCacheDir } from '@/utils/update';
 
 const CLI_PATH = join(import.meta.dir, '../src/index.ts');
 
@@ -164,17 +164,17 @@ describe('update command', () => {
 
 describe('update-checker exports', () => {
 	test('fetchLatestVersion is exported', async () => {
-		const { fetchLatestVersion } = await import('@/utils/update-checker');
+		const { fetchLatestVersion } = await import('@/utils/update');
 		expect(typeof fetchLatestVersion).toBe('function');
 	});
 
 	test('isNewerVersion is exported', async () => {
-		const { isNewerVersion } = await import('@/utils/update-checker');
+		const { isNewerVersion } = await import('@/utils/update');
 		expect(typeof isNewerVersion).toBe('function');
 	});
 
 	test('isNewerVersion correctly compares versions', async () => {
-		const { isNewerVersion } = await import('@/utils/update-checker');
+		const { isNewerVersion } = await import('@/utils/update');
 
 		expect(isNewerVersion('1.0.0', '2.0.0')).toBe(true);
 		expect(isNewerVersion('1.0.0', '1.1.0')).toBe(true);
