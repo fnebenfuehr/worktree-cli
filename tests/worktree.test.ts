@@ -36,6 +36,7 @@ beforeEach(async () => {
 	await $`git add .`.quiet();
 	await $`git config user.email "test@example.com"`.quiet();
 	await $`git config user.name "Test User"`.quiet();
+	await $`git config commit.gpgsign false`.quiet();
 	await $`git commit -m "Initial commit"`.quiet();
 
 	// Get the default branch name (master in CI, main locally)
@@ -250,6 +251,92 @@ describe('worktree.remove() - safety checks', () => {
 	test('throws FileSystemError for non-existent worktree', async () => {
 		await expect(worktree.remove('nonexistent')).rejects.toThrow(FileSystemError);
 		await expect(worktree.remove('nonexistent')).rejects.toThrow('No such worktree directory');
+	});
+
+	test('throws UncommittedChangesError with only staged changes', async () => {
+		// Create merged branch with staged changes
+		await $`git checkout -b feature/staged`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
+		await $`git merge feature/staged`.quiet();
+		await $`git worktree add ../feature-staged feature/staged`.quiet();
+
+		// Add staged change (file is added to index but not committed)
+		const featurePath = join(testDir, 'feature-staged');
+		await writeFile(join(featurePath, 'staged.txt'), 'staged content');
+		await $`git -C ${featurePath} add staged.txt`.quiet();
+
+		const error = await worktree.remove('feature/staged').catch((e) => e);
+		expect(error).toBeInstanceOf(UncommittedChangesError);
+		expect(error.message).toContain('Staged changes');
+		expect(error.message).toContain('staged.txt');
+	});
+
+	test('throws UncommittedChangesError with only unstaged changes', async () => {
+		// Create merged branch with unstaged changes
+		await $`git checkout -b feature/unstaged`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
+		await $`git merge feature/unstaged`.quiet();
+		await $`git worktree add ../feature-unstaged feature/unstaged`.quiet();
+
+		// Modify existing file without staging
+		const featurePath = join(testDir, 'feature-unstaged');
+		await writeFile(join(featurePath, 'README.md'), 'modified content');
+
+		const error = await worktree.remove('feature/unstaged').catch((e) => e);
+		expect(error).toBeInstanceOf(UncommittedChangesError);
+		expect(error.message).toContain('Unstaged changes');
+		expect(error.message).toContain('README.md');
+	});
+
+	test('throws UncommittedChangesError with only untracked files', async () => {
+		// Create merged branch with untracked file
+		await $`git checkout -b feature/untracked`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
+		await $`git merge feature/untracked`.quiet();
+		await $`git worktree add ../feature-untracked feature/untracked`.quiet();
+
+		// Add untracked file
+		const featurePath = join(testDir, 'feature-untracked');
+		await writeFile(join(featurePath, 'untracked.txt'), 'untracked content');
+
+		const error = await worktree.remove('feature/untracked').catch((e) => e);
+		expect(error).toBeInstanceOf(UncommittedChangesError);
+		expect(error.message).toContain('Untracked files');
+		expect(error.message).toContain('untracked.txt');
+	});
+
+	test('throws UncommittedChangesError with mixed changes (staged + unstaged)', async () => {
+		// Create merged branch with mixed changes
+		await $`git checkout -b feature/mixed`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
+		await $`git merge feature/mixed`.quiet();
+		await $`git worktree add ../feature-mixed feature/mixed`.quiet();
+
+		const featurePath = join(testDir, 'feature-mixed');
+
+		// Add staged change
+		await writeFile(join(featurePath, 'staged.txt'), 'staged content');
+		await $`git -C ${featurePath} add staged.txt`.quiet();
+
+		// Add unstaged change
+		await writeFile(join(featurePath, 'README.md'), 'modified content');
+
+		const error = await worktree.remove('feature/mixed').catch((e) => e);
+		expect(error).toBeInstanceOf(UncommittedChangesError);
+		expect(error.message).toContain('Staged changes');
+		expect(error.message).toContain('Unstaged changes');
+	});
+
+	test('allows removal of clean merged worktree', async () => {
+		// Create and merge branch
+		await $`git checkout -b feature/clean`.quiet();
+		await $`git checkout ${defaultBranch}`.quiet();
+		await $`git merge feature/clean`.quiet();
+		await $`git worktree add ../feature-clean feature/clean`.quiet();
+
+		// Should succeed - branch is merged and has no changes
+		const result = await worktree.remove('feature/clean');
+		expect(result.path).toContain('feature-clean');
 	});
 });
 

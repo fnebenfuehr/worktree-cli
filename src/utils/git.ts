@@ -330,21 +330,125 @@ export async function gitIsBranchMerged(
 }
 
 /**
+ * Detailed working directory status
+ */
+export interface WorkingDirectoryStatus {
+	staged: string[];
+	unstaged: string[];
+	untracked: string[];
+	hasChanges: boolean;
+}
+
+/**
+ * Get detailed working directory status
+ */
+export async function gitGetWorkingDirectoryStatus(cwd?: string): Promise<WorkingDirectoryStatus> {
+	// Use raw exec to preserve leading spaces (don't use execGit which trims)
+	const { error, data } = await tryCatch(async () => {
+		const proc = cwd
+			? await $`git status --porcelain`.cwd(cwd).quiet()
+			: await $`git status --porcelain`.quiet();
+		return proc.stdout.toString();
+	});
+
+	if (error) {
+		throw new GitError('Could not check git status', 'git status --porcelain', { cause: error });
+	}
+
+	const staged: string[] = [];
+	const unstaged: string[] = [];
+	const untracked: string[] = [];
+
+	const lines = data.split('\n').filter((line) => line.length > 0);
+
+	for (const line of lines) {
+		// Porcelain format: XY filename (where XY is 2 chars, then space, then filename)
+		// Use regex to properly parse the format
+		const match = line.match(/^(.)(.) (.+)$/);
+		if (!match || !match[1] || !match[2] || !match[3]) continue;
+
+		const indexStatus = match[1];
+		const workTreeStatus = match[2];
+		const filename = match[3];
+
+		// Untracked files
+		if (indexStatus === '?' && workTreeStatus === '?') {
+			untracked.push(filename);
+			continue;
+		}
+
+		// Staged changes (index has changes)
+		if (indexStatus !== ' ' && indexStatus !== '?') {
+			staged.push(filename);
+		}
+
+		// Unstaged changes (worktree has changes)
+		if (workTreeStatus !== ' ' && workTreeStatus !== '?') {
+			unstaged.push(filename);
+		}
+	}
+
+	return {
+		staged,
+		unstaged,
+		untracked,
+		hasChanges: staged.length > 0 || unstaged.length > 0 || untracked.length > 0,
+	};
+}
+
+/**
+ * Format working directory status for display
+ */
+export function formatWorkingDirectoryStatus(status: WorkingDirectoryStatus): string {
+	const parts: string[] = [];
+
+	if (status.staged.length > 0) {
+		parts.push(`Staged changes (${status.staged.length}):`);
+		for (const file of status.staged.slice(0, 5)) {
+			parts.push(`  • ${file}`);
+		}
+		if (status.staged.length > 5) {
+			parts.push(`  ... and ${status.staged.length - 5} more`);
+		}
+	}
+
+	if (status.unstaged.length > 0) {
+		if (parts.length > 0) parts.push('');
+		parts.push(`Unstaged changes (${status.unstaged.length}):`);
+		for (const file of status.unstaged.slice(0, 5)) {
+			parts.push(`  • ${file}`);
+		}
+		if (status.unstaged.length > 5) {
+			parts.push(`  ... and ${status.unstaged.length - 5} more`);
+		}
+	}
+
+	if (status.untracked.length > 0) {
+		if (parts.length > 0) parts.push('');
+		parts.push(`Untracked files (${status.untracked.length}):`);
+		for (const file of status.untracked.slice(0, 5)) {
+			parts.push(`  • ${file}`);
+		}
+		if (status.untracked.length > 5) {
+			parts.push(`  ... and ${status.untracked.length - 5} more`);
+		}
+	}
+
+	return parts.join('\n');
+}
+
+/**
  * Check for uncommitted changes
  */
 export async function gitHasUncommittedChanges(
 	cwd?: string,
 	options?: { includeUntracked?: boolean }
 ): Promise<boolean> {
-	const args = ['status', '--porcelain'];
-	if (!options?.includeUntracked) {
-		args.push('--untracked-files=no');
+	const status = await gitGetWorkingDirectoryStatus(cwd);
+
+	if (options?.includeUntracked) {
+		return status.hasChanges;
 	}
 
-	const { error, data } = await tryCatch(execGit(args, cwd));
-	if (error) {
-		throw new GitError('Could not check git status', `git ${args.join(' ')}`, { cause: error });
-	}
-
-	return data.stdout.trim().length > 0;
+	return status.staged.length > 0 || status.unstaged.length > 0;
 }
