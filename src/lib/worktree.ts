@@ -376,7 +376,7 @@ export async function setup(targetDir?: string): Promise<SetupResult> {
 	}
 
 	const tempDir = `.tmp-worktree-setup-${process.pid}`;
-	const targetDirName = targetDir || currentBranch;
+	const targetDirName = targetDir || branchToDirName(currentBranch);
 
 	const itemsToRollback: string[] = [];
 	let interrupted = false;
