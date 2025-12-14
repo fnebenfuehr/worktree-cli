@@ -1,5 +1,11 @@
 # worktree-cli
 
+## 1.5.1
+
+### Patch Changes
+
+- 3a26bbd: Fix setup and clone commands: use correct branch-to-directory naming (slashes to dashes) and properly stop spinner on setup error
+
 ## 1.5.0
 
 ### Minor Changes
