@@ -4,7 +4,7 @@ import { writeConfig } from '@/lib/config';
 import { FileSystemError, GitError, ValidationError, WorktreeError } from '@/utils/errors';
 import { move } from '@/utils/fs';
 import { gitGetCurrentBranch } from '@/utils/git';
-import { extractRepoName } from '@/utils/naming';
+import { branchToDirName, extractRepoName } from '@/utils/naming';
 import { intro, isInteractive, outro, promptGitUrl, spinner } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 import { isValidGitUrl, VALIDATION_ERRORS } from '@/utils/validation';
@@ -65,7 +65,7 @@ export async function cloneCommand(gitUrl?: string): Promise<number> {
 			);
 		}
 
-		const targetDir = `${repoName}/${defaultBranch}`;
+		const targetDir = `${repoName}/${branchToDirName(defaultBranch)}`;
 		await move(tempClone, targetDir);
 		await writeConfig(targetDir, { defaultBranch });
 
