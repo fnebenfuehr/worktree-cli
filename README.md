@@ -1,3 +1,8 @@
+> [!CAUTION]
+> **This project is archived.** What started as a bash script for my own worktree workflow became this CLI in Oct 2025 — no existing tool fit my needs at the time, and AI coding tools had no worktree support. Since then, [`worktrunk`](https://github.com/max-sixty/worktrunk) emerged as a far more capable alternative and Claude Code added native worktree isolation. The key learning: wrapping shell commands in MCP adds indirection — plain CLI tools and skills work better for this.
+
+---
+
 [![npm version](https://img.shields.io/npm/v/@fnebenfuehr/worktree-cli.svg)](https://www.npmjs.com/package/@fnebenfuehr/worktree-cli)
 [![license](https://img.shields.io/npm/l/@fnebenfuehr/worktree-cli.svg)](https://github.com/fnebenfuehr/worktree-cli/blob/main/LICENSE)
 
