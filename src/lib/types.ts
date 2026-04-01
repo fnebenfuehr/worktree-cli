@@ -21,6 +21,31 @@ export interface StatusResult {
 }
 
 /**
+ * Ahead/behind tracking status for a branch
+ */
+export interface TrackingStatus {
+	ahead: number;
+	behind: number;
+	upstream?: string;
+}
+
+/**
+ * Extended worktree info with tracking status
+ */
+export interface WorktreeStatusInfo extends WorktreeInfo {
+	tracking?: TrackingStatus;
+	isCurrent: boolean;
+}
+
+/**
+ * Extended status result for CLI command
+ */
+export interface ExtendedStatusResult extends StatusResult {
+	worktrees: WorktreeStatusInfo[];
+	currentWorktree?: WorktreeStatusInfo;
+}
+
+/**
  * Result of creating a new worktree
  */
 export interface CreateResult {
