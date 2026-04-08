@@ -3,6 +3,14 @@
  */
 
 /**
+ * Package.json structure for update checking
+ */
+export interface PackageJson {
+	name: string;
+	version: string;
+}
+
+/**
  * Information about a git worktree
  */
 export interface WorktreeInfo {

@@ -3,7 +3,7 @@ import { rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as prompts from '@/utils/prompts';
-import { checkForUpdates, setCacheDir } from '@/utils/update-checker';
+import { checkForUpdates, setCacheDir } from '@/utils/update';
 
 describe('update-checker', () => {
 	let originalFetch: typeof globalThis.fetch;

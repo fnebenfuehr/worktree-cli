@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
+import type { PackageJson } from '@/lib/types';
 import { log } from '@/utils/prompts';
 import { tryCatch } from '@/utils/try-catch';
 
@@ -10,12 +11,7 @@ const UpdateCheckCacheSchema = z.object({
 	latestVersion: z.string().optional(),
 });
 
-type UpdateCheckCache = z.infer<typeof UpdateCheckCacheSchema>;
-
-interface PackageJson {
-	name: string;
-	version: string;
-}
+export type UpdateCheckCache = z.infer<typeof UpdateCheckCacheSchema>;
 
 const CACHE_FILENAME = 'update-check.json';
 const PRERELEASE_PATTERN = /-(?:alpha|beta|rc|pre|canary|next|dev)/;
@@ -57,7 +53,7 @@ async function readCache(): Promise<UpdateCheckCache | null> {
 	return data;
 }
 
-async function writeCache(cache: UpdateCheckCache): Promise<void> {
+export async function writeCache(cache: UpdateCheckCache): Promise<void> {
 	const { error } = await tryCatch(async () => {
 		await ensureCacheDir();
 		await writeFile(cacheFile, JSON.stringify(cache, null, 2), 'utf-8');
@@ -140,7 +136,7 @@ export async function checkForUpdates(pkg: PackageJson, checkIntervalMs: number)
 
 	if (cache && now - cache.lastCheck < checkIntervalMs) {
 		if (cache.latestVersion && isNewerVersion(pkg.version, cache.latestVersion)) {
-			displayUpdateMessage(pkg.version, cache.latestVersion, pkg.name);
+			displayUpdateMessage(pkg.version, cache.latestVersion);
 		}
 		return;
 	}
@@ -153,10 +149,10 @@ export async function checkForUpdates(pkg: PackageJson, checkIntervalMs: number)
 	});
 
 	if (latestVersion && isNewerVersion(pkg.version, latestVersion)) {
-		displayUpdateMessage(pkg.version, latestVersion, pkg.name);
+		displayUpdateMessage(pkg.version, latestVersion);
 	}
 }
 
-function displayUpdateMessage(current: string, latest: string, packageName: string): void {
-	log.info(`Update available: ${current} → ${latest}\nRun: npm update -g ${packageName}`);
+function displayUpdateMessage(current: string, latest: string): void {
+	log.info(`Update available: ${current} → ${latest}\nRun: worktree update`);
 }
