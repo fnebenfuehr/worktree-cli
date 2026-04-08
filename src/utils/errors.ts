@@ -44,12 +44,19 @@ export class UserCancelledError extends WorktreeError {
 }
 
 export class UncommittedChangesError extends GitError {
-	constructor(identifier: string) {
-		super(
-			`Worktree '${identifier}' has uncommitted changes. Commit or stash changes, or use --force to override.`,
-			'git status --porcelain'
-		);
+	public readonly statusSummary?: string;
+
+	constructor(identifier: string, statusSummary?: string) {
+		const baseMessage = `Worktree '${identifier}' has uncommitted changes.`;
+		const actionMessage = 'Commit or stash changes, or use --force to override.';
+
+		const message = statusSummary
+			? `${baseMessage}\n\n${statusSummary}\n\n${actionMessage}`
+			: `${baseMessage} ${actionMessage}`;
+
+		super(message, 'git status --porcelain');
 		this.name = 'UncommittedChangesError';
+		this.statusSummary = statusSummary;
 	}
 }
 
